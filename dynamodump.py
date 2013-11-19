@@ -5,6 +5,7 @@ SLEEP_INTERVAL = 10 #seconds
 MAX_BATCH_WRITE = 25 #DynamoDB limit
 SCHEMA_FILE = "schema.json"
 DATA_DIR = "data"
+MAX_RETRY = 3
 
 def mkdir_p(path):
   try:
@@ -16,7 +17,22 @@ def mkdir_p(path):
 
 def do_batch_write(conn, table_name, put_requests):
   request_items = {table_name: put_requests}
-  conn.batch_write_item(request_items)
+  i = 1
+  while True:
+    response = conn.batch_write_item(request_items)
+    unprocessed_items = response["UnprocessedItems"]
+
+    if len(unprocessed_items) == 0:
+      break
+
+    if len(unprocessed_items) > 0 and i <= MAX_RETRY:
+      print len(unprocessed_items) + " unprocessed items, retrying.. [" + str(i) + "]"
+      request_items = unprocessed_items
+      i += 1
+    else:
+      print "Max retries reached, failed to processed batch write: " + unprocessed_items
+      print "Ignoring and continuing.."
+      break
 
 def do_backup(table_name):
   # trash data, re-create subdir
