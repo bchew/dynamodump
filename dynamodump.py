@@ -1,11 +1,14 @@
 import boto.dynamodb2.layer1, json, sys, time, shutil, os, argparse
+from boto.dynamodb2.layer1 import DynamoDBConnection
 
 JSON_INDENT = 2
-SLEEP_INTERVAL = 10 #seconds
+AWS_SLEEP_INTERVAL = 10 #seconds
+LOCAL_SLEEP_INTERVAL = 1 #seconds
 MAX_BATCH_WRITE = 25 #DynamoDB limit
 SCHEMA_FILE = "schema.json"
 DATA_DIR = "data"
 MAX_RETRY = 3
+LOCAL_REGION = "local"
 
 def mkdir_p(path):
   try:
@@ -15,7 +18,7 @@ def mkdir_p(path):
       pass
     else: raise
 
-def do_batch_write(conn, table_name, put_requests):
+def batch_write(conn, table_name, put_requests):
   request_items = {table_name: put_requests}
   i = 1
   while True:
@@ -66,7 +69,7 @@ def do_backup(table_name):
     except KeyError, e:
       break
 
-def do_restore(table_name):
+def do_restore(table_name, sleep_interval):
   # delete table if exists
   try:
     conn.delete_table(table_name)
@@ -78,7 +81,7 @@ def do_restore(table_name):
   try:
     while True:
       print "Waiting for " + table_name + " table to be deleted.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]"
-      time.sleep(SLEEP_INTERVAL)
+      time.sleep(sleep_interval)
   except boto.exception.JSONResponseError, e:
     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
       print table_name + " deleted."
@@ -99,7 +102,7 @@ def do_restore(table_name):
   while True:
     if conn.describe_table(table_name)["Table"]["TableStatus"] != "ACTIVE":
       print "Waiting for " + table_name + " table to be created.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]"
-      time.sleep(SLEEP_INTERVAL)
+      time.sleep(sleep_interval)
     else:
       print table_name + " created."
       break
@@ -121,21 +124,30 @@ def do_restore(table_name):
 
     # flush every MAX_BATCH_WRITE
     if len(put_requests) == MAX_BATCH_WRITE:
-      do_batch_write(conn, table_name, put_requests)
+      batch_write(conn, table_name, put_requests)
       del put_requests[:]
 
   # flush remainder
-  do_batch_write(conn, table_name, put_requests)
+  batch_write(conn, table_name, put_requests)
 
 # parse args
-parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore")
+parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore.")
 parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
-parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'")
+parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
 parser.add_argument("-t", "--table", help="DynamoDB table name to backup or restore to")
+parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
+parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
+parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
+parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
 args = parser.parse_args()
 
-# connect to region
-conn = boto.dynamodb2.connect_to_region(args.region)
+# instantiate connection
+if args.region == LOCAL_REGION:
+  conn = DynamoDBConnection(aws_access_key_id=args.accessKey, aws_secret_access_key=args.secretKey, host=args.host, port=int(args.port), is_secure=False)
+  sleep_interval = LOCAL_SLEEP_INTERVAL
+else:
+  conn = boto.dynamodb2.connect_to_region(args.region)
+  sleep_interval = AWS_SLEEP_INTERVAL
 
 # do backup/restore
 if args.mode == "backup":
@@ -144,5 +156,5 @@ if args.mode == "backup":
   print "Backup for " + args.table + " table completed."
 elif args.mode == "restore":
   print "Starting restore for " + args.table + ".."
-  do_restore(args.table)
+  do_restore(args.table, sleep_interval)
   print "Restore for " + args.table + " table completed."
