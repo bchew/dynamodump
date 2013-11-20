@@ -39,7 +39,8 @@ def batch_write(conn, table_name, put_requests):
 
 def do_backup(table_name):
   # trash data, re-create subdir
-  shutil.rmtree(table_name)
+  if os.path.exists(table_name):
+    shutil.rmtree(table_name)
   mkdir_p(table_name)
 
   # get table schema
@@ -84,7 +85,7 @@ def do_restore(table_name, sleep_interval):
       time.sleep(sleep_interval)
   except boto.exception.JSONResponseError, e:
     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-      print table_name + " deleted."
+      print table_name + " table deleted."
       pass
 
   # create table using schema
