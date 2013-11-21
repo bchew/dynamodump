@@ -1,18 +1,18 @@
 dynamodump
 ==========
 
-Simple backup and restore script for Amazon DynamoDB using boto.
+Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
 Suitable for DynamoDB usages of smaller data volume which do not warrant the usage of AWS Data Pipeline for backup/restores.
 
-dynamodump now supports local DynamoDB instances as well (e.g. DynamoDB local, dynalite).
+dynamodump now supports local DynamoDB instances as well (tested with dynalite).
 
 Usage
 -----
 ```
 usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-t TABLE] [--host HOST]
                      [--port PORT] [--accessKey ACCESSKEY]
-                     [--secretKey SECRETKEY]
+                     [--secretKey SECRETKEY] [--log LOG]
 
 Simple DynamoDB backup/restore.
 
@@ -30,6 +30,8 @@ optional arguments:
                         Access key of local DynamoDB [required only for local]
   --secretKey SECRETKEY
                         Secret key of local DynamoDB [required only for local]
+  --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
+                        [optional]
 ```
 
 AWS example
@@ -48,7 +50,7 @@ python dynamodump.py -m backup -r local -t test-table --host localhost --port 45
 
 python dynamodump.py -m restore -r local -t test-table --host localhost --port 4567 --accessKey a --secretKey a
 ```
-The above assumes your DynamoDB local is running on localhost:4567 and is accessible via 'a' as access/secret keys.
+The above assumes your local DynamoDB is running on localhost:4567 and is accessible via 'a' as access/secret keys.
 
 To Do
 -----
