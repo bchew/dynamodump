@@ -16,14 +16,19 @@ usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-t TABLE] [--host HOST]
 
 Simple DynamoDB backup/restore.
 
-optional arguments:
-  -h, --help            show this help message and exit
+required arguments:
   -m MODE, --mode MODE  'backup' or 'restore'
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Use 'local' for
                         local DynamoDB testing.
-  -t TABLE, --table TABLE
-                        DynamoDB table name to backup or restore to
+  -s SRCTABLE, --srcTable SRCTABLE
+                        source DynamoDB table name to backup or restore from
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DESTTABLE, --destTable DESTTABLE
+                        destination DynamoDB table name to backup or restore
+                        to [optional, defaults to source]
   --host HOST           Host of local DynamoDB [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
   --accessKey ACCESSKEY
@@ -37,18 +42,18 @@ optional arguments:
 AWS example
 -----------
 ```
-python dynamodump.py -m backup -r us-west-1 -t testTable
+python dynamodump.py -m backup -r us-west-1 -s testTable
 
-python dynamodump.py -m restore -r us-west-1 -t testTable
+python dynamodump.py -m restore -r us-west-1 -s testTable
 ```
 The above assumes your AWS access key and secret key is present in ~/.boto
 
 Local example
 -------------
 ```
-python dynamodump.py -m backup -r local -t test-table --host localhost --port 4567 --accessKey a --secretKey a
+python dynamodump.py -m backup -r local -s test-table --host localhost --port 4567 --accessKey a --secretKey a
 
-python dynamodump.py -m restore -r local -t test-table --host localhost --port 4567 --accessKey a --secretKey a
+python dynamodump.py -m restore -r local -s test-table --host localhost --port 4567 --accessKey a --secretKey a
 ```
 The above assumes your local DynamoDB is running on localhost:4567 and is accessible via 'a' as access/secret keys.
 

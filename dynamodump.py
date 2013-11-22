@@ -71,10 +71,13 @@ def do_backup(table_name):
     except KeyError, e:
       break
 
-def do_restore(table_name, sleep_interval):
+def do_restore(sleep_interval, source_table, destination_table):
+  if destination_table == None:
+    destination_table = source_table
+
   # delete table if exists
   try:
-    conn.delete_table(table_name)
+    conn.delete_table(destination_table)
   except boto.exception.JSONResponseError, e:
     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
       pass
@@ -82,18 +85,18 @@ def do_restore(table_name, sleep_interval):
   # if table exists, wait till deleted
   try:
     while True:
-      logging.info("Waiting for " + table_name + " table to be deleted.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]")
+      logging.info("Waiting for " + destination_table + " table to be deleted.. [" + conn.describe_table(destination_table)["Table"]["TableStatus"] +"]")
       time.sleep(sleep_interval)
   except boto.exception.JSONResponseError, e:
     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-      logging.info(table_name + " table deleted.")
+      logging.info(destination_table + " table deleted.")
       pass
 
   # create table using schema
-  table_data = json.load(open(table_name + "/" + SCHEMA_FILE))
+  table_data = json.load(open(source_table + "/" + SCHEMA_FILE))
   table = table_data["Table"]
   table_attribute_definitions = table["AttributeDefinitions"]
-  table_table_name = table["TableName"]
+  table_table_name = destination_table
   table_key_schema = table["KeySchema"]
   table_provisioned_throughput = table["ProvisionedThroughput"]
   table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
@@ -102,21 +105,21 @@ def do_restore(table_name, sleep_interval):
 
   # wait for table creation completion
   while True:
-    if conn.describe_table(table_name)["Table"]["TableStatus"] != "ACTIVE":
-      logging.info("Waiting for " + table_name + " table to be created.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]")
+    if conn.describe_table(destination_table)["Table"]["TableStatus"] != "ACTIVE":
+      logging.info("Waiting for " + destination_table + " table to be created.. [" + conn.describe_table(destination_table)["Table"]["TableStatus"] +"]")
       time.sleep(sleep_interval)
     else:
-      logging.info(table_name + " created.")
+      logging.info(destination_table + " created.")
       break
 
   # read data files
-  logging.info("Restoring data for " + table_name + " table..")
-  data_file_list = os.listdir(table_name + "/" + DATA_DIR + "/")
+  logging.info("Restoring data for " + destination_table + " table..")
+  data_file_list = os.listdir(source_table + "/" + DATA_DIR + "/")
   data_file_list.sort()
 
   items = []
   for data_file in data_file_list:
-    item_data = json.load(open(table_name + "/" + DATA_DIR + "/" + data_file))
+    item_data = json.load(open(source_table + "/" + DATA_DIR + "/" + data_file))
     items.extend(item_data["Items"])
 
   # batch write data
@@ -126,17 +129,18 @@ def do_restore(table_name, sleep_interval):
 
     # flush every MAX_BATCH_WRITE
     if len(put_requests) == MAX_BATCH_WRITE:
-      batch_write(conn, table_name, put_requests)
+      batch_write(conn, destination_table, put_requests)
       del put_requests[:]
 
   # flush remainder
-  batch_write(conn, table_name, put_requests)
+  batch_write(conn, destination_table, put_requests)
 
 # parse args
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore.")
 parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
-parser.add_argument("-t", "--table", help="DynamoDB table name to backup or restore to")
+parser.add_argument("-s", "--srcTable", help="source DynamoDB table name to backup or restore from")
+parser.add_argument("-d", "--destTable", help="destination DynamoDB table name to backup or restore to [optional, defaults to source]")
 parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
@@ -160,10 +164,13 @@ else:
 
 # do backup/restore
 if args.mode == "backup":
-  logging.info("Starting backup for " + args.table + "..")
-  do_backup(args.table)
-  logging.info("Backup for " + args.table + " table completed.")
+  logging.info("Starting backup for " + args.srcTable + "..")
+  do_backup(args.srcTable)
+  logging.info("Backup for " + args.srcTable + " table completed.")
 elif args.mode == "restore":
-  logging.info("Starting restore for " + args.table + "..")
-  do_restore(args.table, sleep_interval)
-  logging.info("Restore for " + args.table + " table completed.")
+  restore_str = args.srcTable
+  if args.destTable != None:
+    restore_str = restore_str + " to " + args.destTable
+  logging.info("Starting restore for " + restore_str + "..")
+  do_restore(sleep_interval, args.srcTable, args.destTable)
+  logging.info("Restore for " + restore_str + " table completed.")
