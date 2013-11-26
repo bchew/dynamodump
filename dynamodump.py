@@ -81,6 +81,9 @@ def do_restore(sleep_interval, source_table, destination_table):
   except boto.exception.JSONResponseError, e:
     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
       pass
+    else:
+      logging.exception(e)
+      sys.exit(1)
 
   # if table exists, wait till deleted
   try:
@@ -91,6 +94,9 @@ def do_restore(sleep_interval, source_table, destination_table):
     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
       logging.info(destination_table + " table deleted.")
       pass
+    else:
+      logging.exception(e)
+      sys.exit(1)
 
   # create table using schema
   table_data = json.load(open(source_table + "/" + SCHEMA_FILE))
