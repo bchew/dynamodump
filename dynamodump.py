@@ -76,27 +76,31 @@ def do_restore(sleep_interval, source_table, destination_table):
     destination_table = source_table
 
   # delete table if exists
+  table_exist = True
   try:
     conn.delete_table(destination_table)
   except boto.exception.JSONResponseError, e:
     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
+      table_exist = False
+      logging.info("Table does not exist in destination, skip waiting..")
       pass
     else:
       logging.exception(e)
       sys.exit(1)
 
   # if table exists, wait till deleted
-  try:
-    while True:
-      logging.info("Waiting for " + destination_table + " table to be deleted.. [" + conn.describe_table(destination_table)["Table"]["TableStatus"] +"]")
-      time.sleep(sleep_interval)
-  except boto.exception.JSONResponseError, e:
-    if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-      logging.info(destination_table + " table deleted.")
-      pass
-    else:
-      logging.exception(e)
-      sys.exit(1)
+  if table_exist:
+    try:
+      while True:
+        logging.info("Waiting for " + destination_table + " table to be deleted.. [" + conn.describe_table(destination_table)["Table"]["TableStatus"] +"]")
+        time.sleep(sleep_interval)
+    except boto.exception.JSONResponseError, e:
+      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
+        logging.info(destination_table + " table deleted.")
+        pass
+      else:
+        logging.exception(e)
+        sys.exit(1)
 
   # create table using schema
   table_data = json.load(open(source_table + "/" + SCHEMA_FILE))
