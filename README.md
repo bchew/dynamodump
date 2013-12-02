@@ -10,8 +10,8 @@ dynamodump now supports local DynamoDB instances as well (tested with dynalite).
 Usage
 -----
 ```
-usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-t TABLE] [--host HOST]
-                     [--port PORT] [--accessKey ACCESSKEY]
+usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-s SRCTABLE] [-d DESTTABLE]
+                     [--host HOST] [--port PORT] [--accessKey ACCESSKEY]
                      [--secretKey SECRETKEY] [--log LOG]
 
 Simple DynamoDB backup/restore.
