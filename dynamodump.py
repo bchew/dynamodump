@@ -10,6 +10,7 @@ DATA_DIR = "data"
 MAX_RETRY = 3
 LOCAL_REGION = "local"
 LOG_LEVEL = "INFO"
+DUMP_PATH = "dump"
 
 def mkdir_p(path):
   try:
@@ -40,19 +41,19 @@ def batch_write(conn, table_name, put_requests):
 
 def do_backup(table_name):
   # trash data, re-create subdir
-  if os.path.exists(table_name):
-    shutil.rmtree(table_name)
-  mkdir_p(table_name)
+  if os.path.exists(DUMP_PATH + "/" + table_name):
+    shutil.rmtree(DUMP_PATH + "/" + table_name)
+  mkdir_p(DUMP_PATH + "/" + table_name)
 
   # get table schema
   logging.info("Dumping table schema for " + table_name)
-  f = open(table_name + "/" + SCHEMA_FILE, "w+")
+  f = open(DUMP_PATH + "/" + table_name + "/" + SCHEMA_FILE, "w+")
   f.write(json.dumps(conn.describe_table(table_name), indent=JSON_INDENT))
   f.close()
 
   # get table data
   logging.info("Dumping table items for " + table_name)
-  mkdir_p(table_name + "/" + DATA_DIR)
+  mkdir_p(DUMP_PATH + "/" + table_name + "/" + DATA_DIR)
 
   i = 1
   last_evaluated_key = None
@@ -60,7 +61,7 @@ def do_backup(table_name):
   while True:
     scanned_table = conn.scan(table_name, exclusive_start_key=last_evaluated_key)
 
-    f = open(table_name + "/" + DATA_DIR + "/" + str(i).zfill(4) + ".json", "w+")
+    f = open(DUMP_PATH + "/" + table_name + "/" + DATA_DIR + "/" + str(i).zfill(4) + ".json", "w+")
     f.write(json.dumps(scanned_table, indent=JSON_INDENT))
     f.close()
 
@@ -103,7 +104,7 @@ def do_restore(sleep_interval, source_table, destination_table):
         sys.exit(1)
 
   # create table using schema
-  table_data = json.load(open(source_table + "/" + SCHEMA_FILE))
+  table_data = json.load(open(DUMP_PATH + "/" + source_table + "/" + SCHEMA_FILE))
   table = table_data["Table"]
   table_attribute_definitions = table["AttributeDefinitions"]
   table_table_name = destination_table
@@ -124,12 +125,12 @@ def do_restore(sleep_interval, source_table, destination_table):
 
   # read data files
   logging.info("Restoring data for " + destination_table + " table..")
-  data_file_list = os.listdir(source_table + "/" + DATA_DIR + "/")
+  data_file_list = os.listdir(DUMP_PATH + "/" + source_table + "/" + DATA_DIR + "/")
   data_file_list.sort()
 
   items = []
   for data_file in data_file_list:
-    item_data = json.load(open(source_table + "/" + DATA_DIR + "/" + data_file))
+    item_data = json.load(open(DUMP_PATH + "/" + source_table + "/" + DATA_DIR + "/" + data_file))
     items.extend(item_data["Items"])
 
   # batch write data
