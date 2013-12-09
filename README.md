@@ -16,19 +16,19 @@ usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-s SRCTABLE] [-d DESTTABLE]
 
 Simple DynamoDB backup/restore.
 
-required arguments:
+optional arguments:
+  -h, --help            show this help message and exit
   -m MODE, --mode MODE  'backup' or 'restore'
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Use 'local' for
                         local DynamoDB testing.
   -s SRCTABLE, --srcTable SRCTABLE
-                        source DynamoDB table name to backup or restore from
-
-optional arguments:
-  -h, --help            show this help message and exit
+                        Source DynamoDB table name to backup or restore from,
+                        use 'tablename*' for wildcard prefix selection
   -d DESTTABLE, --destTable DESTTABLE
-                        destination DynamoDB table name to backup or restore
-                        to [optional, defaults to source]
+                        Destination DynamoDB table name to backup or restore
+                        to, use 'tablename*' for wildcard prefix selection
+                        [optional, defaults to source]
   --host HOST           Host of local DynamoDB [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
   --accessKey ACCESSKEY
@@ -37,6 +37,7 @@ optional arguments:
                         Secret key of local DynamoDB [required only for local]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
+
 ```
 
 AWS example
