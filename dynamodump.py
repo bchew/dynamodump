@@ -1,4 +1,4 @@
-import boto.dynamodb2.layer1, json, sys, time, shutil, os, argparse, logging
+import boto.dynamodb2.layer1, json, sys, time, shutil, os, argparse, logging, datetime
 from boto.dynamodb2.layer1 import DynamoDBConnection
 
 JSON_INDENT = 2
@@ -20,7 +20,7 @@ def mkdir_p(path):
       pass
     else: raise
 
-def batch_write(conn, table_name, put_requests):
+def batch_write(sleep_interval, conn, table_name, put_requests):
   request_items = {table_name: put_requests}
   i = 1
   while True:
@@ -31,15 +31,18 @@ def batch_write(conn, table_name, put_requests):
       break
 
     if len(unprocessed_items) > 0 and i <= MAX_RETRY:
-      logging.info(len(unprocessed_items) + " unprocessed items, retrying.. [" + str(i) + "]")
+      logging.info(str(len(unprocessed_items)) + " unprocessed items, retrying.. [" + str(i) + "]")
       request_items = unprocessed_items
       i += 1
+      time.sleep(sleep_interval)
     else:
-      logging.info("Max retries reached, failed to processed batch write: " + unprocessed_items)
+      logging.info("Max retries reached, failed to processed batch write: " + json.dumps(unprocessed_items, indent=JSON_INDENT))
       logging.info("Ignoring and continuing..")
       break
 
 def do_backup(table_name):
+  logging.info("Starting backup for " + table_name + "..")
+
   # trash data, re-create subdir
   if os.path.exists(DUMP_PATH + "/" + table_name):
     shutil.rmtree(DUMP_PATH + "/" + table_name)
@@ -71,6 +74,8 @@ def do_backup(table_name):
       last_evaluated_key = scanned_table["LastEvaluatedKey"]
     except KeyError, e:
       break
+
+  logging.info("Backup for " + table_name + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 def do_restore(sleep_interval, source_table, destination_table):
   if destination_table == None:
@@ -140,18 +145,19 @@ def do_restore(sleep_interval, source_table, destination_table):
 
     # flush every MAX_BATCH_WRITE
     if len(put_requests) == MAX_BATCH_WRITE:
-      batch_write(conn, destination_table, put_requests)
+      logging.info("Writing next " + str(MAX_BATCH_WRITE) + " items..")
+      batch_write(sleep_interval, conn, destination_table, put_requests)
       del put_requests[:]
 
   # flush remainder
-  batch_write(conn, destination_table, put_requests)
+  batch_write(sleep_interval, conn, destination_table, put_requests)
 
 # parse args
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore.")
 parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
-parser.add_argument("-s", "--srcTable", help="source DynamoDB table name to backup or restore from")
-parser.add_argument("-d", "--destTable", help="destination DynamoDB table name to backup or restore to [optional, defaults to source]")
+parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection")
+parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection [optional, defaults to source]")
 parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
@@ -174,14 +180,19 @@ else:
   sleep_interval = AWS_SLEEP_INTERVAL
 
 # do backup/restore
+start_time = datetime.datetime.now().replace(microsecond=0)
 if args.mode == "backup":
-  logging.info("Starting backup for " + args.srcTable + "..")
-  do_backup(args.srcTable)
-  logging.info("Backup for " + args.srcTable + " table completed.")
+  if args.srcTable.find("*"):
+    table_list = conn.list_tables()["TableNames"]
+    for table_name in table_list:
+      if table_name.startswith(args.srcTable.split("*", 1)[0]):
+        do_backup(table_name)
+  else:
+    do_backup(args.srcTable)
 elif args.mode == "restore":
   restore_str = args.srcTable
   if args.destTable != None:
     restore_str = restore_str + " to " + args.destTable
   logging.info("Starting restore for " + restore_str + "..")
   do_restore(sleep_interval, args.srcTable, args.destTable)
-  logging.info("Restore for " + restore_str + " table completed.")
+  logging.info("Restore for " + restore_str + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
