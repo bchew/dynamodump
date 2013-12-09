@@ -12,6 +12,15 @@ LOCAL_REGION = "local"
 LOG_LEVEL = "INFO"
 DUMP_PATH = "dump"
 
+def get_table_name_matches(conn, table_name_wildcard):
+  matching_tables = []
+  table_list = conn.list_tables()["TableNames"]
+  for table_name in table_list:
+    if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
+      matching_tables.append(table_name)
+
+  return matching_tables
+
 def mkdir_p(path):
   try:
     os.makedirs(path)
@@ -182,11 +191,9 @@ else:
 # do backup/restore
 start_time = datetime.datetime.now().replace(microsecond=0)
 if args.mode == "backup":
-  if args.srcTable.find("*"):
-    table_list = conn.list_tables()["TableNames"]
-    for table_name in table_list:
-      if table_name.startswith(args.srcTable.split("*", 1)[0]):
-        do_backup(table_name)
+  if args.srcTable.find("*") != -1:
+    for table_name in get_table_name_matches(conn, args.srcTable):
+      do_backup(table_name)
   else:
     do_backup(args.srcTable)
 elif args.mode == "restore":
