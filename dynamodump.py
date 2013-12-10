@@ -21,6 +21,49 @@ def get_table_name_matches(conn, table_name_wildcard):
 
   return matching_tables
 
+def get_restore_table_matches(table_name_wildcard):
+  matching_tables = []
+  dir_list = os.listdir("./" + DUMP_PATH)
+  for dir_name in dir_list:
+    if dir_name.startswith(table_name_wildcard.split("*", 1)[0]):
+      matching_tables.append(dir_name)
+
+  return matching_tables
+
+def change_prefix(source_table_name, source_wildcard, destination_wildcard):
+  source_prefix = source_wildcard.split("*", 1)[0]
+  destination_prefix = destination_wildcard.split("*", 1)[0]
+  if source_table_name.split("-", 1)[0] == source_prefix:
+    return destination_prefix + "-" + source_table_name.split("-", 1)[1]
+
+def delete_table(table_name):
+  # delete table if exists
+  table_exist = True
+  try:
+    conn.delete_table(table_name)
+  except boto.exception.JSONResponseError, e:
+    if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
+      table_exist = False
+      logging.info("Table does not exist in destination, deleting not necessary..")
+      pass
+    else:
+      logging.exception(e)
+      sys.exit(1)
+
+  # if table exists, wait till deleted
+  if table_exist:
+    try:
+      while True:
+        logging.info("Waiting for " + table_name + " table to be deleted.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]")
+        time.sleep(sleep_interval)
+    except boto.exception.JSONResponseError, e:
+      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
+        logging.info(table_name + " table deleted.")
+        pass
+      else:
+        logging.exception(e)
+        sys.exit(1)
+
 def mkdir_p(path):
   try:
     os.makedirs(path)
@@ -87,35 +130,7 @@ def do_backup(table_name):
   logging.info("Backup for " + table_name + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 def do_restore(sleep_interval, source_table, destination_table):
-  if destination_table == None:
-    destination_table = source_table
-
-  # delete table if exists
-  table_exist = True
-  try:
-    conn.delete_table(destination_table)
-  except boto.exception.JSONResponseError, e:
-    if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-      table_exist = False
-      logging.info("Table does not exist in destination, skip waiting..")
-      pass
-    else:
-      logging.exception(e)
-      sys.exit(1)
-
-  # if table exists, wait till deleted
-  if table_exist:
-    try:
-      while True:
-        logging.info("Waiting for " + destination_table + " table to be deleted.. [" + conn.describe_table(destination_table)["Table"]["TableStatus"] +"]")
-        time.sleep(sleep_interval)
-    except boto.exception.JSONResponseError, e:
-      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-        logging.info(destination_table + " table deleted.")
-        pass
-      else:
-        logging.exception(e)
-        sys.exit(1)
+  logging.info("Starting restore for " + source_table + " to " + destination_table + "..")
 
   # create table using schema
   table_data = json.load(open(DUMP_PATH + "/" + source_table + "/" + SCHEMA_FILE))
@@ -161,12 +176,14 @@ def do_restore(sleep_interval, source_table, destination_table):
   # flush remainder
   batch_write(sleep_interval, conn, destination_table, put_requests)
 
+  logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
+
 # parse args
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore.")
 parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
 parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection")
-parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection [optional, defaults to source]")
+parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (uses '-' separator) [optional, defaults to source]")
 parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
@@ -192,14 +209,28 @@ else:
 start_time = datetime.datetime.now().replace(microsecond=0)
 if args.mode == "backup":
   if args.srcTable.find("*") != -1:
-    for table_name in get_table_name_matches(conn, args.srcTable):
+    matching_backup_tables = get_table_name_matches(conn, args.srcTable)
+    logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to backup: " + ", ".join(matching_backup_tables))
+    for table_name in matching_backup_tables:
       do_backup(table_name)
   else:
     do_backup(args.srcTable)
 elif args.mode == "restore":
-  restore_str = args.srcTable
   if args.destTable != None:
-    restore_str = restore_str + " to " + args.destTable
-  logging.info("Starting restore for " + restore_str + "..")
-  do_restore(sleep_interval, args.srcTable, args.destTable)
-  logging.info("Restore for " + restore_str + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
+    dest_table = args.destTable
+  else:
+    dest_table = args.srcTable
+
+  if dest_table.find("*") != -1:
+    matching_destination_tables = get_table_name_matches(conn, dest_table)
+    logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host to be deleted: " + ", ".join(matching_destination_tables))
+    for table_name in matching_destination_tables:
+      delete_table(table_name)
+
+    matching_restore_tables = get_restore_table_matches(args.srcTable)
+    logging.info("Found " + str(len(matching_restore_tables)) + " table(s) in " + DUMP_PATH + " to restore: " + ", ".join(matching_restore_tables))
+    for source_table in matching_restore_tables:
+      do_restore(sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table))
+  else:
+    delete_table(dest_table)
+    do_restore(sleep_interval, args.srcTable, dest_table)

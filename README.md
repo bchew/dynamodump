@@ -28,7 +28,7 @@ optional arguments:
   -d DESTTABLE, --destTable DESTTABLE
                         Destination DynamoDB table name to backup or restore
                         to, use 'tablename*' for wildcard prefix selection
-                        [optional, defaults to source]
+                        (uses '-' separator) [optional, defaults to source]
   --host HOST           Host of local DynamoDB [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
   --accessKey ACCESSKEY
@@ -60,5 +60,4 @@ The above assumes your local DynamoDB is running on localhost:4567 and is access
 
 To Do
 -----
-- Support handling of multiple tables
 - Improve backup/restore performance
