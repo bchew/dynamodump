@@ -51,22 +51,37 @@ optional arguments:
 
 AWS example
 -----------
+The following examples assume your AWS access key and secret key is present in ~/.boto
+
+Single table backup/restore:
 ```
 python dynamodump.py -m backup -r us-west-1 -s testTable
 
 python dynamodump.py -m restore -r us-west-1 -s testTable
 ```
-The above assumes your AWS access key and secret key is present in ~/.boto
+Multiple (wildcard) table backup/restore:
+```
+python dynamodump.py -m backup -r us-west-1 -s production*
+
+python dynamodump.py -m restore -r us-west-1 -s production*
+```
+The above, but between different environments (e.g. production-* tables to development-* tables):
+```
+python dynamodump.py -m backup -r us-west-1 -s production*
+
+python dynamodump.py -m restore -r us-west-1 -s production* -d development*
+```
 
 Local example
 -------------
+The following assume your local DynamoDB is running on localhost:4567 and is accessible via 'a' as access/secret keys.
 ```
-python dynamodump.py -m backup -r local -s test-table --host localhost --port 4567 --accessKey a --secretKey a
+python dynamodump.py -m backup -r local -s testTable --host localhost --port 4567 --accessKey a --secretKey a
 
-python dynamodump.py -m restore -r local -s test-table --host localhost --port 4567 --accessKey a --secretKey a
+python dynamodump.py -m restore -r local -s testTable --host localhost --port 4567 --accessKey a --secretKey a
 ```
-The above assumes your local DynamoDB is running on localhost:4567 and is accessible via 'a' as access/secret keys.
+Multiple table backup/restore as stated in the AWS examples are also available for local.
 
 To Do
 -----
-- Improve backup/restore performance
+- Improve backup/restore performance (parallelisation)
