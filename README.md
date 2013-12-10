@@ -5,7 +5,7 @@ Simple backup and restore script for Amazon DynamoDB using boto to work similarl
 
 Suitable for DynamoDB usages of smaller data volume which do not warrant the usage of AWS Data Pipeline for backup/restores.
 
-dynamodump now supports local DynamoDB instances as well (tested with dynalite).
+dynamodump supports local DynamoDB instances as well (tested with [dynalite](https://github.com/mhart/dynalite)).
 
 Usage
 -----
