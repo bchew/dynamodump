@@ -201,7 +201,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 
     # flush every MAX_BATCH_WRITE
     if len(put_requests) == MAX_BATCH_WRITE:
-      logging.info("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
+      logging.debug("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
       batch_write(conn, sleep_interval, destination_table, put_requests)
       del put_requests[:]
 
