@@ -11,7 +11,9 @@ Usage
 -----
 ```
 usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-s SRCTABLE] [-d DESTTABLE]
-                     [--host HOST] [--port PORT] [--accessKey ACCESSKEY]
+                     [--readCapacity READCAPACITY]
+                     [--writeCapacity WRITECAPACITY] [--host HOST]
+                     [--port PORT] [--accessKey ACCESSKEY]
                      [--secretKey SECRETKEY] [--log LOG]
 
 Simple DynamoDB backup/restore.
@@ -29,6 +31,12 @@ optional arguments:
                         Destination DynamoDB table name to backup or restore
                         to, use 'tablename*' for wildcard prefix selection
                         (uses '-' separator) [optional, defaults to source]
+  --readCapacity READCAPACITY
+                        Change the temp read capacity of the DynamoDB table to
+                        backup from [optional]
+  --writeCapacity WRITECAPACITY
+                        Change the temp write capacity of the DynamoDB table
+                        to restore to [defaults to 100, optional]
   --host HOST           Host of local DynamoDB [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
   --accessKey ACCESSKEY
@@ -37,6 +45,7 @@ optional arguments:
                         Secret key of local DynamoDB [required only for local]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
+
 
 ```
 

@@ -11,6 +11,7 @@ MAX_RETRY = 3
 LOCAL_REGION = "local"
 LOG_LEVEL = "INFO"
 DUMP_PATH = "dump"
+RESTORE_WRITE_CAPACITY = 100
 
 def get_table_name_matches(conn, table_name_wildcard):
   matching_tables = []
@@ -36,7 +37,7 @@ def change_prefix(source_table_name, source_wildcard, destination_wildcard):
   if source_table_name.split("-", 1)[0] == source_prefix:
     return destination_prefix + "-" + source_table_name.split("-", 1)[1]
 
-def delete_table(table_name):
+def delete_table(conn, table_name):
   # delete table if exists
   table_exist = True
   try:
@@ -72,7 +73,7 @@ def mkdir_p(path):
       pass
     else: raise
 
-def batch_write(sleep_interval, conn, table_name, put_requests):
+def batch_write(conn, sleep_interval, table_name, put_requests):
   request_items = {table_name: put_requests}
   i = 1
   while True:
@@ -92,7 +93,24 @@ def batch_write(sleep_interval, conn, table_name, put_requests):
       logging.info("Ignoring and continuing..")
       break
 
-def do_backup(table_name):
+def wait_for_active_table(conn, table_name, verb):
+  while True:
+    if conn.describe_table(table_name)["Table"]["TableStatus"] != "ACTIVE":
+      logging.info("Waiting for " + table_name + " table to be " + verb + ".. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]")
+      time.sleep(sleep_interval)
+    else:
+      logging.info(table_name + " " + verb + ".")
+      break
+
+def update_provisioned_throughput(conn, table_name, read_capacity, write_capacity, wait=True):
+  logging.info("Updating " + table_name + " table read capacity to: " + str(read_capacity) + ", write capacity to: " + str(write_capacity))
+  conn.update_table(table_name, {"ReadCapacityUnits": int(read_capacity), "WriteCapacityUnits": int(write_capacity)})
+
+  # wait for provisioned throughput update completion
+  if wait:
+    wait_for_active_table(conn, table_name, "updated")
+
+def do_backup(conn, table_name, read_capacity):
   logging.info("Starting backup for " + table_name + "..")
 
   # trash data, re-create subdir
@@ -103,8 +121,15 @@ def do_backup(table_name):
   # get table schema
   logging.info("Dumping table schema for " + table_name)
   f = open(DUMP_PATH + "/" + table_name + "/" + SCHEMA_FILE, "w+")
-  f.write(json.dumps(conn.describe_table(table_name), indent=JSON_INDENT))
+  table_desc = conn.describe_table(table_name)
+  f.write(json.dumps(table_desc, indent=JSON_INDENT))
   f.close()
+
+  # override table read capacity if specified
+  if (read_capacity != None):
+    original_read_capacity = table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
+    original_write_capacity = table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
+    update_provisioned_throughput(conn, table_name, read_capacity, original_write_capacity)
 
   # get table data
   logging.info("Dumping table items for " + table_name)
@@ -127,9 +152,13 @@ def do_backup(table_name):
     except KeyError, e:
       break
 
+  # revert back to original table read capacity if specified
+  if (read_capacity != None):
+    update_provisioned_throughput(conn, table_name, original_read_capacity, original_write_capacity, False)
+
   logging.info("Backup for " + table_name + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
-def do_restore(sleep_interval, source_table, destination_table):
+def do_restore(conn, sleep_interval, source_table, destination_table, write_capacity):
   logging.info("Starting restore for " + source_table + " to " + destination_table + "..")
 
   # create table using schema
@@ -138,19 +167,22 @@ def do_restore(sleep_interval, source_table, destination_table):
   table_attribute_definitions = table["AttributeDefinitions"]
   table_table_name = destination_table
   table_key_schema = table["KeySchema"]
-  table_provisioned_throughput = table["ProvisionedThroughput"]
+  original_read_capacity = table["ProvisionedThroughput"]["ReadCapacityUnits"]
+  original_write_capacity = table["ProvisionedThroughput"]["WriteCapacityUnits"]
   table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
 
+  # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY
+  if (write_capacity == None):
+    write_capacity = RESTORE_WRITE_CAPACITY
+
+  # temp provisioned throughput for restore
+  table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
+
+  logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
   conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes)
 
   # wait for table creation completion
-  while True:
-    if conn.describe_table(destination_table)["Table"]["TableStatus"] != "ACTIVE":
-      logging.info("Waiting for " + destination_table + " table to be created.. [" + conn.describe_table(destination_table)["Table"]["TableStatus"] +"]")
-      time.sleep(sleep_interval)
-    else:
-      logging.info(destination_table + " created.")
-      break
+  wait_for_active_table(conn, destination_table, "created")
 
   # read data files
   logging.info("Restoring data for " + destination_table + " table..")
@@ -169,12 +201,15 @@ def do_restore(sleep_interval, source_table, destination_table):
 
     # flush every MAX_BATCH_WRITE
     if len(put_requests) == MAX_BATCH_WRITE:
-      logging.info("Writing next " + str(MAX_BATCH_WRITE) + " items..")
-      batch_write(sleep_interval, conn, destination_table, put_requests)
+      logging.info("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
+      batch_write(conn, sleep_interval, destination_table, put_requests)
       del put_requests[:]
 
   # flush remainder
-  batch_write(sleep_interval, conn, destination_table, put_requests)
+  batch_write(conn, sleep_interval, destination_table, put_requests)
+
+  # revert to original table write capacity
+  update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
 
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
@@ -184,6 +219,8 @@ parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
 parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection")
 parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (uses '-' separator) [optional, defaults to source]")
+parser.add_argument("--readCapacity", help="Change the temp read capacity of the DynamoDB table to backup from [optional]")
+parser.add_argument("--writeCapacity", help="Change the temp write capacity of the DynamoDB table to restore to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
 parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
@@ -212,9 +249,9 @@ if args.mode == "backup":
     matching_backup_tables = get_table_name_matches(conn, args.srcTable)
     logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to backup: " + ", ".join(matching_backup_tables))
     for table_name in matching_backup_tables:
-      do_backup(table_name)
+      do_backup(conn, table_name, args.readCapacity)
   else:
-    do_backup(args.srcTable)
+    do_backup(conn, args.srcTable, args.readCapacity)
 elif args.mode == "restore":
   if args.destTable != None:
     dest_table = args.destTable
@@ -225,12 +262,12 @@ elif args.mode == "restore":
     matching_destination_tables = get_table_name_matches(conn, dest_table)
     logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host to be deleted: " + ", ".join(matching_destination_tables))
     for table_name in matching_destination_tables:
-      delete_table(table_name)
+      delete_table(conn, table_name)
 
     matching_restore_tables = get_restore_table_matches(args.srcTable)
     logging.info("Found " + str(len(matching_restore_tables)) + " table(s) in " + DUMP_PATH + " to restore: " + ", ".join(matching_restore_tables))
     for source_table in matching_restore_tables:
-      do_restore(sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table))
+      do_restore(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table), args.writeCapacity)
   else:
-    delete_table(dest_table)
-    do_restore(sleep_interval, args.srcTable, dest_table)
+    delete_table(conn, dest_table)
+    do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
