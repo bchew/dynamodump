@@ -206,7 +206,8 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
       del put_requests[:]
 
   # flush remainder
-  batch_write(conn, sleep_interval, destination_table, put_requests)
+  if len(put_requests) > 0:
+    batch_write(conn, sleep_interval, destination_table, put_requests)
 
   # revert to original table write capacity
   update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
