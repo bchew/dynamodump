@@ -170,6 +170,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   original_read_capacity = table["ProvisionedThroughput"]["ReadCapacityUnits"]
   original_write_capacity = table["ProvisionedThroughput"]["WriteCapacityUnits"]
   table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
+  table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
   # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY
   if (write_capacity == None):
@@ -179,7 +180,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
 
   logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
-  conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes)
+  conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes, table_global_secondary_indexes)
 
   # wait for table creation completion
   wait_for_active_table(conn, destination_table, "created")
