@@ -37,7 +37,7 @@ def change_prefix(source_table_name, source_wildcard, destination_wildcard):
   if source_table_name.split("-", 1)[0] == source_prefix:
     return destination_prefix + "-" + source_table_name.split("-", 1)[1]
 
-def delete_table(conn, table_name):
+def delete_table(conn, sleep_interval, table_name):
   # delete table if exists
   table_exist = True
   try:
@@ -264,12 +264,12 @@ elif args.mode == "restore":
     matching_destination_tables = get_table_name_matches(conn, dest_table)
     logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host to be deleted: " + ", ".join(matching_destination_tables))
     for table_name in matching_destination_tables:
-      delete_table(conn, table_name)
+      delete_table(conn, sleep_interval, table_name)
 
     matching_restore_tables = get_restore_table_matches(args.srcTable)
     logging.info("Found " + str(len(matching_restore_tables)) + " table(s) in " + DUMP_PATH + " to restore: " + ", ".join(matching_restore_tables))
     for source_table in matching_restore_tables:
       do_restore(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table), args.writeCapacity)
   else:
-    delete_table(conn, dest_table)
+    delete_table(conn, sleep_interval, dest_table)
     do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
