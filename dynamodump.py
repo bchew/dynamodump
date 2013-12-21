@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import boto.dynamodb2.layer1, json, sys, time, shutil, os, argparse, logging, datetime
 from boto.dynamodb2.layer1 import DynamoDBConnection
 
@@ -241,7 +242,7 @@ if args.region == LOCAL_REGION:
   conn = DynamoDBConnection(aws_access_key_id=args.accessKey, aws_secret_access_key=args.secretKey, host=args.host, port=int(args.port), is_secure=False)
   sleep_interval = LOCAL_SLEEP_INTERVAL
 else:
-  conn = boto.dynamodb2.connect_to_region(args.region)
+  conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey, aws_secret_access_key=args.secretKey)
   sleep_interval = AWS_SLEEP_INTERVAL
 
 # do backup/restore
