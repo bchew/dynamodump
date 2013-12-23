@@ -81,7 +81,3 @@ python dynamodump.py -m backup -r local -s testTable --host localhost --port 456
 python dynamodump.py -m restore -r local -s testTable --host localhost --port 4567 --accessKey a --secretKey a
 ```
 Multiple table backup/restore as stated in the AWS examples are also available for local.
-
-To Do
------
-- Improve backup/restore performance (parallelisation)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import boto.dynamodb2.layer1, json, sys, time, shutil, os, argparse, logging, datetime
+import boto.dynamodb2.layer1, json, sys, time, shutil, os, argparse, logging, datetime, threading
 from boto.dynamodb2.layer1 import DynamoDBConnection
 
 JSON_INDENT = 2
@@ -13,6 +13,7 @@ LOCAL_REGION = "local"
 LOG_LEVEL = "INFO"
 DUMP_PATH = "dump"
 RESTORE_WRITE_CAPACITY = 100
+THREAD_START_DELAY = 1 #seconds
 
 def get_table_name_matches(conn, table_name_wildcard):
   matching_tables = []
@@ -251,8 +252,18 @@ if args.mode == "backup":
   if args.srcTable.find("*") != -1:
     matching_backup_tables = get_table_name_matches(conn, args.srcTable)
     logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to backup: " + ", ".join(matching_backup_tables))
+
+    threads = []
     for table_name in matching_backup_tables:
-      do_backup(conn, table_name, args.readCapacity)
+      t = threading.Thread(target=do_backup, args=(conn, table_name, args.readCapacity,))
+      threads.append(t)
+      t.start()
+      time.sleep(THREAD_START_DELAY)
+
+    for thread in threads:
+      thread.join()
+
+    logging.info("Backup of table(s) " + args.srcTable + " completed!")
   else:
     do_backup(conn, args.srcTable, args.readCapacity)
 elif args.mode == "restore":
@@ -264,13 +275,32 @@ elif args.mode == "restore":
   if dest_table.find("*") != -1:
     matching_destination_tables = get_table_name_matches(conn, dest_table)
     logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host to be deleted: " + ", ".join(matching_destination_tables))
+
+    threads = []
     for table_name in matching_destination_tables:
-      delete_table(conn, sleep_interval, table_name)
+      t = threading.Thread(target=delete_table, args=(conn, sleep_interval, table_name,))
+      threads.append(t)
+      t.start()
+      time.sleep(THREAD_START_DELAY)
+
+    for thread in threads:
+      thread.join()
 
     matching_restore_tables = get_restore_table_matches(args.srcTable)
     logging.info("Found " + str(len(matching_restore_tables)) + " table(s) in " + DUMP_PATH + " to restore: " + ", ".join(matching_restore_tables))
+
+    threads = []
     for source_table in matching_restore_tables:
-      do_restore(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table), args.writeCapacity)
+      t = threading.Thread(target=do_restore, args=(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table), args.writeCapacity,))
+      threads.append(t)
+      t.start()
+      time.sleep(THREAD_START_DELAY)
+
+    for thread in threads:
+      thread.join()
+
+    logging.info("Restore of table(s) " + args.srcTable + " to " +  args.destTable + " completed!")
   else:
     delete_table(conn, sleep_interval, dest_table)
     do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
+  
