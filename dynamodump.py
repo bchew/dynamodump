@@ -16,9 +16,20 @@ RESTORE_WRITE_CAPACITY = 100
 THREAD_START_DELAY = 1 #seconds
 
 def get_table_name_matches(conn, table_name_wildcard):
+  all_tables = []
+  last_evaluated_table_name = None
+
+  while True:
+    table_list = conn.list_tables(exclusive_start_table_name=last_evaluated_table_name)
+    all_tables.extend(table_list["TableNames"])
+
+    try:
+      last_evaluated_table_name = table_list["LastEvaluatedTableName"]
+    except KeyError, e:
+      break
+
   matching_tables = []
-  table_list = conn.list_tables()["TableNames"]
-  for table_name in table_list:
+  for table_name in all_tables:
     if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
       matching_tables.append(table_name)
 
