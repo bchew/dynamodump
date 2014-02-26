@@ -193,7 +193,18 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
 
   logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
-  conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes, table_global_secondary_indexes)
+  
+  while True:
+    try:
+      conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes, table_global_secondary_indexes)
+      break
+    except boto.exception.JSONResponseError, e:
+      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+        logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
+        time.sleep(sleep_interval)
+      else:
+        logging.exception(e)
+        sys.exit(1)
 
   # wait for table creation completion
   wait_for_active_table(conn, destination_table, "created")
