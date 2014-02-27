@@ -138,10 +138,11 @@ def do_backup(conn, table_name, read_capacity):
   f.write(json.dumps(table_desc, indent=JSON_INDENT))
   f.close()
 
+  original_read_capacity = table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
+  original_write_capacity = table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
+  
   # override table read capacity if specified
-  if (read_capacity != None):
-    original_read_capacity = table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
-    original_write_capacity = table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
+  if read_capacity != None and read_capacity != original_read_capacity:    
     update_provisioned_throughput(conn, table_name, read_capacity, original_write_capacity)
 
   # get table data
@@ -166,7 +167,7 @@ def do_backup(conn, table_name, read_capacity):
       break
 
   # revert back to original table read capacity if specified
-  if (read_capacity != None):
+  if read_capacity != None and read_capacity != original_read_capacity:
     update_provisioned_throughput(conn, table_name, original_read_capacity, original_write_capacity, False)
 
   logging.info("Backup for " + table_name + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
@@ -185,9 +186,12 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
   table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
-  # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY
-  if (write_capacity == None):
-    write_capacity = RESTORE_WRITE_CAPACITY
+  # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
+  if write_capacity == None: 
+    if original_write_capacity < RESTORE_WRITE_CAPACITY:
+      write_capacity = RESTORE_WRITE_CAPACITY
+    else:
+      write_capacity = original_write_capacity
 
   # temp provisioned throughput for restore
   table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
@@ -234,8 +238,9 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   if len(put_requests) > 0:
     batch_write(conn, sleep_interval, destination_table, put_requests)
 
-  # revert to original table write capacity
-  update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
+  # revert to original table write capacity if it has been modified
+  if write_capacity != original_write_capacity:
+    update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
 
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
