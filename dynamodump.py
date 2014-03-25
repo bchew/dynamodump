@@ -30,7 +30,7 @@ def get_table_name_matches(conn, table_name_wildcard):
 
   matching_tables = []
   for table_name in all_tables:
-    if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
+    if table_name.split("-", 1)[0] == table_name_wildcard.split("*", 1)[0]:
       matching_tables.append(table_name)
 
   return matching_tables
@@ -39,7 +39,7 @@ def get_restore_table_matches(table_name_wildcard):
   matching_tables = []
   dir_list = os.listdir("./" + DUMP_PATH)
   for dir_name in dir_list:
-    if dir_name.startswith(table_name_wildcard.split("*", 1)[0]):
+    if dir_name.split("-", 1)[0] == table_name_wildcard.split("*", 1)[0]:
       matching_tables.append(dir_name)
 
   return matching_tables
@@ -140,9 +140,9 @@ def do_backup(conn, table_name, read_capacity):
 
   original_read_capacity = table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
   original_write_capacity = table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
-  
+
   # override table read capacity if specified
-  if read_capacity != None and read_capacity != original_read_capacity:    
+  if read_capacity != None and read_capacity != original_read_capacity:
     update_provisioned_throughput(conn, table_name, read_capacity, original_write_capacity)
 
   # get table data
@@ -187,7 +187,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
   # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
-  if write_capacity == None: 
+  if write_capacity == None:
     if original_write_capacity < RESTORE_WRITE_CAPACITY:
       write_capacity = RESTORE_WRITE_CAPACITY
     else:
@@ -197,7 +197,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
 
   logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
-  
+
   while True:
     try:
       conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes, table_global_secondary_indexes)
@@ -330,4 +330,4 @@ elif args.mode == "restore":
   else:
     delete_table(conn, sleep_interval, dest_table)
     do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
-  
+
