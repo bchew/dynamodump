@@ -193,6 +193,15 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
     else:
       write_capacity = original_write_capacity
 
+  # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
+  original_gsi_write_capacities = []
+  if table_global_secondary_indexes is not None:
+    for gsi in table_global_secondary_indexes:
+      original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
+
+      if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < RESTORE_WRITE_CAPACITY:
+        gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = RESTORE_WRITE_CAPACITY
+
   # temp provisioned throughput for restore
   table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
 
@@ -241,6 +250,17 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   # revert to original table write capacity if it has been modified
   if write_capacity != original_write_capacity:
     update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
+
+  # loop through each GSI to check if it has changed and update if necessary
+  if table_global_secondary_indexes is not None:
+    gsi_data = []
+    for gsi in table_global_secondary_indexes:
+      original_gsi_write_capacity = original_gsi_write_capacities.pop(0)
+      if original_gsi_write_capacity != gsi["ProvisionedThroughput"]["WriteCapacityUnits"]:
+        gsi_data.append({"Update": { "IndexName" : gsi["IndexName"], "ProvisionedThroughput": { "ReadCapacityUnits": int(gsi["ProvisionedThroughput"]["ReadCapacityUnits"]), "WriteCapacityUnits": int(original_gsi_write_capacity),},},})
+
+    logging.info("Updating " + destination_table + " global secondary indexes write capacities as necessary..")
+    conn.update_table(destination_table, global_secondary_index_updates=gsi_data)
 
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
