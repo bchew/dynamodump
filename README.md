@@ -47,6 +47,7 @@ optional arguments:
                         [optional]
 
 
+Backup files are stored in a 'dump' subdirectory, and are restored from there as well.
 ```
 
 AWS example
