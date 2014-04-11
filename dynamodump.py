@@ -51,18 +51,25 @@ def change_prefix(source_table_name, source_wildcard, destination_wildcard):
     return destination_prefix + "-" + source_table_name.split("-", 1)[1]
 
 def delete_table(conn, sleep_interval, table_name):
-  # delete table if exists
-  table_exist = True
-  try:
-    conn.delete_table(table_name)
-  except boto.exception.JSONResponseError, e:
-    if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-      table_exist = False
-      logging.info("Table does not exist in destination, deleting not necessary..")
-      pass
-    else:
-      logging.exception(e)
-      sys.exit(1)
+  while True:
+    # delete table if exists
+    table_exist = True
+    try:
+      conn.delete_table(table_name)
+    except boto.exception.JSONResponseError, e:
+      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
+        table_exist = False
+        logging.info("Table does not exist in destination!")
+        break
+      elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+        logging.info("Limit exceeded, retrying deletion of " + table_name + "..")
+        time.sleep(sleep_interval)
+      elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceInUseException":
+        logging.info(table_name + " table is being deleted..")
+        time.sleep(sleep_interval)
+      else:
+        logging.exception(e)
+        sys.exit(1)
 
   # if table exists, wait till deleted
   if table_exist:
