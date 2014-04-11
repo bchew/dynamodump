@@ -59,7 +59,7 @@ def delete_table(conn, sleep_interval, table_name):
     except boto.exception.JSONResponseError, e:
       if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
         table_exist = False
-        logging.info("Table does not exist in destination!")
+        logging.info(table_name + " table deleted!")
         break
       elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
         logging.info("Limit exceeded, retrying deletion of " + table_name + "..")
@@ -124,7 +124,14 @@ def wait_for_active_table(conn, table_name, verb):
 
 def update_provisioned_throughput(conn, table_name, read_capacity, write_capacity, wait=True):
   logging.info("Updating " + table_name + " table read capacity to: " + str(read_capacity) + ", write capacity to: " + str(write_capacity))
-  conn.update_table(table_name, {"ReadCapacityUnits": int(read_capacity), "WriteCapacityUnits": int(write_capacity)})
+  while True:
+    try:
+      conn.update_table(table_name, {"ReadCapacityUnits": int(read_capacity), "WriteCapacityUnits": int(write_capacity)})
+      break
+    except boto.exception.JSONResponseError, e:
+      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+        logging.info("Limit exceeded, retrying updating throughput of " + table_name + "..")
+        time.sleep(sleep_interval)
 
   # wait for provisioned throughput update completion
   if wait:
@@ -267,7 +274,14 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
         gsi_data.append({"Update": { "IndexName" : gsi["IndexName"], "ProvisionedThroughput": { "ReadCapacityUnits": int(gsi["ProvisionedThroughput"]["ReadCapacityUnits"]), "WriteCapacityUnits": int(original_gsi_write_capacity),},},})
 
     logging.info("Updating " + destination_table + " global secondary indexes write capacities as necessary..")
-    conn.update_table(destination_table, global_secondary_index_updates=gsi_data)
+    while True:
+      try:
+        conn.update_table(destination_table, global_secondary_index_updates=gsi_data)
+        break
+      except boto.exception.JSONResponseError, e:
+        if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+          logging.info("Limit exceeded, retrying updating throughput of " + table_name + "..")
+          time.sleep(sleep_interval)
 
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
