@@ -64,6 +64,9 @@ def delete_table(conn, sleep_interval, table_name):
       elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
         logging.info("Limit exceeded, retrying deletion of " + table_name + "..")
         time.sleep(sleep_interval)
+      elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+        logging.info("Control plane limit exceeded, retrying deletion of " + table_name + "..")
+        time.sleep(sleep_interval)
       elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceInUseException":
         logging.info(table_name + " table is being deleted..")
         time.sleep(sleep_interval)
@@ -131,6 +134,9 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
     except boto.exception.JSONResponseError, e:
       if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
         logging.info("Limit exceeded, retrying updating throughput of " + table_name + "..")
+        time.sleep(sleep_interval)
+      elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+        logging.info("Control plane limit exceeded, retrying updating throughput of " + table_name + "..")
         time.sleep(sleep_interval)
 
   # wait for provisioned throughput update completion
@@ -229,6 +235,9 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
       if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
         logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
         time.sleep(sleep_interval)
+      elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+        logging.info("Control plane limit exceeded, retrying creation of " + destination_table + "..")
+        time.sleep(sleep_interval)
       else:
         logging.exception(e)
         sys.exit(1)
@@ -281,6 +290,9 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
       except boto.exception.JSONResponseError, e:
         if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
           logging.info("Limit exceeded, retrying updating throughput of " + table_name + "..")
+          time.sleep(sleep_interval)
+        elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+          logging.info("Control plane limit exceeded, retrying updating throughput of " + table_name + "..")
           time.sleep(sleep_interval)
 
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
