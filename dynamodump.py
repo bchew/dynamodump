@@ -14,6 +14,7 @@ LOG_LEVEL = "INFO"
 DUMP_PATH = "dump"
 RESTORE_WRITE_CAPACITY = 100
 THREAD_START_DELAY = 1 #seconds
+CURRENT_WORKING_DIR = os.getcwd()
 
 def get_table_name_matches(conn, table_name_wildcard):
   all_tables = []
@@ -37,7 +38,17 @@ def get_table_name_matches(conn, table_name_wildcard):
 
 def get_restore_table_matches(table_name_wildcard):
   matching_tables = []
-  dir_list = os.listdir("./" + DUMP_PATH)
+  try:
+    dir_list = os.listdir("./" + DUMP_PATH)
+  except OSError:
+    logging.info("Cannot find \"./%s\", Now trying current working directory.." % DUMP_PATH)
+    dump_data_path = CURRENT_WORKING_DIR
+    try:
+      dir_list = os.listdir(dump_data_path)
+    except OSError:
+      logging.info("Cannot find \"%s\" directory containing dump files!" % dump_data_path)
+      sys.exit(1)
+
   for dir_name in dir_list:
     if dir_name.split("-", 1)[0] == table_name_wildcard.split("*", 1)[0]:
       matching_tables.append(dir_name)
@@ -196,7 +207,17 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   logging.info("Starting restore for " + source_table + " to " + destination_table + "..")
 
   # create table using schema
-  table_data = json.load(open(DUMP_PATH + "/" + source_table + "/" + SCHEMA_FILE))
+  # restore source_table from dump directory if it exists else try current working directory
+  if os.path.exists("%s/%s" % (DUMP_PATH, source_table)):
+    dump_data_path = DUMP_PATH
+  else:
+    logging.info("Cannot find \"./%s/%s\", Now trying current working directory.." % (DUMP_PATH, source_table))
+    if os.path.exists("%s/%s" % (CURRENT_WORKING_DIR, source_table)):
+      dump_data_path = CURRENT_WORKING_DIR
+    else:
+      logging.info("Cannot find \"%s/%s\" directory containing dump files!" % (CURRENT_WORKING_DIR, source_table))
+      sys.exit(1)
+  table_data = json.load(open(dump_data_path + "/" + source_table + "/" + SCHEMA_FILE))
   table = table_data["Table"]
   table_attribute_definitions = table["AttributeDefinitions"]
   table_table_name = destination_table
@@ -247,12 +268,12 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 
   # read data files
   logging.info("Restoring data for " + destination_table + " table..")
-  data_file_list = os.listdir(DUMP_PATH + "/" + source_table + "/" + DATA_DIR + "/")
+  data_file_list = os.listdir(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/")
   data_file_list.sort()
 
   items = []
   for data_file in data_file_list:
-    item_data = json.load(open(DUMP_PATH + "/" + source_table + "/" + DATA_DIR + "/" + data_file))
+    item_data = json.load(open(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/" + data_file))
     items.extend(item_data["Items"])
 
   # batch write data
