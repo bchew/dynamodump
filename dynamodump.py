@@ -310,10 +310,10 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
         break
       except boto.exception.JSONResponseError, e:
         if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-          logging.info("Limit exceeded, retrying updating throughput of " + table_name + "..")
+          logging.info("Limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
           time.sleep(sleep_interval)
         elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-          logging.info("Control plane limit exceeded, retrying updating throughput of " + table_name + "..")
+          logging.info("Control plane limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
           time.sleep(sleep_interval)
 
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
