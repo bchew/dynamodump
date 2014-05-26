@@ -271,25 +271,25 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   data_file_list = os.listdir(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/")
   data_file_list.sort()
 
-  items = []
   for data_file in data_file_list:
+    items = []
     item_data = json.load(open(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/" + data_file))
     items.extend(item_data["Items"])
 
-  # batch write data
-  put_requests = []
-  while len(items) > 0:
-    put_requests.append({"PutRequest": {"Item": items.pop(0)}})
+    # batch write data
+    put_requests = []
+    while len(items) > 0:
+      put_requests.append({"PutRequest": {"Item": items.pop(0)}})
 
-    # flush every MAX_BATCH_WRITE
-    if len(put_requests) == MAX_BATCH_WRITE:
-      logging.debug("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
+      # flush every MAX_BATCH_WRITE
+      if len(put_requests) == MAX_BATCH_WRITE:
+        logging.debug("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
+        batch_write(conn, sleep_interval, destination_table, put_requests)
+        del put_requests[:]
+
+    # flush remainder
+    if len(put_requests) > 0:
       batch_write(conn, sleep_interval, destination_table, put_requests)
-      del put_requests[:]
-
-  # flush remainder
-  if len(put_requests) > 0:
-    batch_write(conn, sleep_interval, destination_table, put_requests)
 
   # revert to original table write capacity if it has been modified
   if write_capacity != original_write_capacity:
