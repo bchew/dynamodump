@@ -118,10 +118,9 @@ def batch_write(conn, sleep_interval, table_name, put_requests):
       break
 
     if len(unprocessed_items) > 0 and i <= MAX_RETRY:
-      logging.info(str(len(unprocessed_items)) + " unprocessed items, retrying.. [" + str(i) + "]")
+      logging.debug(str(len(unprocessed_items)) + " unprocessed items, retrying.. [" + str(i) + "]")
       request_items = unprocessed_items
       i += 1
-      time.sleep(sleep_interval)
     else:
       logging.info("Max retries reached, failed to processed batch write: " + json.dumps(unprocessed_items, indent=JSON_INDENT))
       logging.info("Ignoring and continuing..")
@@ -272,6 +271,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   data_file_list.sort()
 
   for data_file in data_file_list:
+    logging.info("Processing " + data_file + " of " + destination_table)
     items = []
     item_data = json.load(open(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/" + data_file))
     items.extend(item_data["Items"])
