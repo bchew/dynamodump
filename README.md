@@ -11,6 +11,7 @@ Usage
 -----
 ```
 usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-s SRCTABLE] [-d DESTTABLE]
+                     [--prefixSeparator PREFIXSEPARATOR]
                      [--readCapacity READCAPACITY]
                      [--writeCapacity WRITECAPACITY] [--host HOST]
                      [--port PORT] [--accessKey ACCESSKEY]
@@ -30,7 +31,11 @@ optional arguments:
   -d DESTTABLE, --destTable DESTTABLE
                         Destination DynamoDB table name to backup or restore
                         to, use 'tablename*' for wildcard prefix selection
-                        (uses '-' separator) [optional, defaults to source]
+                        (defaults to use '-' separator) [optional, defaults to
+                        source]
+  --prefixSeparator PREFIXSEPARATOR
+                        Specify a different prefix separator, e.g. '.'
+                        [optional]
   --readCapacity READCAPACITY
                         Change the temp read capacity of the DynamoDB table to
                         backup from [optional]
@@ -47,7 +52,7 @@ optional arguments:
                         [optional]
 
 
-Backup files are stored in a 'dump' subdirectory, and are restored from there as well.
+Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
 ```
 
 AWS example
@@ -60,7 +65,8 @@ python dynamodump.py -m backup -r us-west-1 -s testTable
 
 python dynamodump.py -m restore -r us-west-1 -s testTable
 ```
-Multiple (wildcard) table backup/restore:
+Multiple table backup/restore (assumes prefix of 'production-' of table names, use --prefixSeparator to specify a
+different separator):
 ```
 python dynamodump.py -m backup -r us-west-1 -s production*
 

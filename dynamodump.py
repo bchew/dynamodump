@@ -15,8 +15,9 @@ DUMP_PATH = "dump"
 RESTORE_WRITE_CAPACITY = 100
 THREAD_START_DELAY = 1 #seconds
 CURRENT_WORKING_DIR = os.getcwd()
+DEFAULT_PREFIX_SEPARATOR = "-"
 
-def get_table_name_matches(conn, table_name_wildcard):
+def get_table_name_matches(conn, table_name_wildcard, separator):
   all_tables = []
   last_evaluated_table_name = None
 
@@ -31,12 +32,12 @@ def get_table_name_matches(conn, table_name_wildcard):
 
   matching_tables = []
   for table_name in all_tables:
-    if table_name.split("-", 1)[0] == table_name_wildcard.split("*", 1)[0]:
+    if table_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
       matching_tables.append(table_name)
 
   return matching_tables
 
-def get_restore_table_matches(table_name_wildcard):
+def get_restore_table_matches(table_name_wildcard, separator):
   matching_tables = []
   try:
     dir_list = os.listdir("./" + DUMP_PATH)
@@ -50,16 +51,16 @@ def get_restore_table_matches(table_name_wildcard):
       sys.exit(1)
 
   for dir_name in dir_list:
-    if dir_name.split("-", 1)[0] == table_name_wildcard.split("*", 1)[0]:
+    if dir_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
       matching_tables.append(dir_name)
 
   return matching_tables
 
-def change_prefix(source_table_name, source_wildcard, destination_wildcard):
+def change_prefix(source_table_name, source_wildcard, destination_wildcard, separator):
   source_prefix = source_wildcard.split("*", 1)[0]
   destination_prefix = destination_wildcard.split("*", 1)[0]
-  if source_table_name.split("-", 1)[0] == source_prefix:
-    return destination_prefix + "-" + source_table_name.split("-", 1)[1]
+  if source_table_name.split(separator, 1)[0] == source_prefix:
+    return destination_prefix + separator + source_table_name.split(separator, 1)[1]
 
 def delete_table(conn, sleep_interval, table_name):
   while True:
@@ -323,7 +324,8 @@ parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore.")
 parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
 parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection")
-parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (uses '-' separator) [optional, defaults to source]")
+parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]")
+parser.add_argument("--prefixSeparator", help="Specify a different prefix separator, e.g. '.' [optional]")
 parser.add_argument("--readCapacity", help="Change the temp read capacity of the DynamoDB table to backup from [optional]")
 parser.add_argument("--writeCapacity", help="Change the temp write capacity of the DynamoDB table to restore to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
 parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
@@ -347,11 +349,16 @@ else:
   conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey, aws_secret_access_key=args.secretKey)
   sleep_interval = AWS_SLEEP_INTERVAL
 
+# set prefix separator
+prefix_separator = DEFAULT_PREFIX_SEPARATOR
+if args.prefixSeparator != None:
+  prefix_separator = args.prefixSeparator
+
 # do backup/restore
 start_time = datetime.datetime.now().replace(microsecond=0)
 if args.mode == "backup":
   if args.srcTable.find("*") != -1:
-    matching_backup_tables = get_table_name_matches(conn, args.srcTable)
+    matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
     logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to backup: " + ", ".join(matching_backup_tables))
 
     threads = []
@@ -374,7 +381,7 @@ elif args.mode == "restore":
     dest_table = args.srcTable
 
   if dest_table.find("*") != -1:
-    matching_destination_tables = get_table_name_matches(conn, dest_table)
+    matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
     logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host to be deleted: " + ", ".join(matching_destination_tables))
 
     threads = []
@@ -387,12 +394,12 @@ elif args.mode == "restore":
     for thread in threads:
       thread.join()
 
-    matching_restore_tables = get_restore_table_matches(args.srcTable)
+    matching_restore_tables = get_restore_table_matches(args.srcTable, prefix_separator)
     logging.info("Found " + str(len(matching_restore_tables)) + " table(s) in " + DUMP_PATH + " to restore: " + ", ".join(matching_restore_tables))
 
     threads = []
     for source_table in matching_restore_tables:
-      t = threading.Thread(target=do_restore, args=(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table), args.writeCapacity,))
+      t = threading.Thread(target=do_restore, args=(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table, prefix_separator), args.writeCapacity,))
       threads.append(t)
       t.start()
       time.sleep(THREAD_START_DELAY)
