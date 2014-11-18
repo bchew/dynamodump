@@ -329,7 +329,7 @@ parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'.
 parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection")
 parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]")
 parser.add_argument("--prefixSeparator", help="Specify a different prefix separator, e.g. '.' [optional]")
-parser.add_argument("--noPrefix", action='store_true', help="Override flag the use of a prefix separator for backup wildcard searches, [optional]")
+parser.add_argument("--noSeparator", action='store_true', help="Override flag the use of a prefix separator to use backup wildcard searches, [optional]")
 parser.add_argument("--readCapacity", help="Change the temp read capacity of the DynamoDB table to backup from [optional]")
 parser.add_argument("--writeCapacity", help="Change the temp write capacity of the DynamoDB table to restore to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
 parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
@@ -357,7 +357,7 @@ else:
 prefix_separator = DEFAULT_PREFIX_SEPARATOR
 if args.prefixSeparator != None:
   prefix_separator = args.prefixSeparator
-if args.noPrefix == True :
+if args.noSeparator == True :
   prefix_separator = None
 
 # do backup/restore
