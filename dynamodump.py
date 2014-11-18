@@ -363,7 +363,7 @@ if args.noPrefix == True :
 # do backup/restore
 start_time = datetime.datetime.now().replace(microsecond=0)
 if args.mode == "backup":
-  if args.srcTable.find("*") != -1: 
+  if args.srcTable.find("*") != -1:
     matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
     logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to backup: " + ", ".join(matching_backup_tables))
 
