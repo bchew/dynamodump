@@ -48,7 +48,7 @@ optional arguments:
                         Access key of local DynamoDB [required only for local]
   --secretKey SECRETKEY
                         Secret key of local DynamoDB [required only for local]
-  --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
+  --logConfig path      The path to logging config, if not provided will try to pick logging.config if not found then logging.config.dist
                         [optional]
 
 

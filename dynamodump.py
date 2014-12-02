@@ -10,7 +10,6 @@ SCHEMA_FILE = "schema.json"
 DATA_DIR = "data"
 MAX_RETRY = 6
 LOCAL_REGION = "local"
-LOG_LEVEL = "INFO"
 DUMP_PATH = "dump"
 RESTORE_WRITE_CAPACITY = 100
 THREAD_START_DELAY = 1 #seconds
@@ -336,14 +335,17 @@ parser.add_argument("--host", help="Host of local DynamoDB [required only for lo
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
 parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
-parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
+parser.add_argument("--logConfig", help="The path to logging config, if not provided will try to pick logging.config if not found then logging.config.dist")
 args = parser.parse_args()
 
-# set log level
-log_level = LOG_LEVEL
-if args.log != None:
-  log_level = args.log.upper()
-logging.basicConfig(level=getattr(logging, log_level))
+# set the logging config
+loggingFilename = 'logging.config.dist'
+if os.path.isfile('logging.config'):
+  loggingFilename = 'logging.config'
+if args.logConfig is not None:
+  loggingFilename = args.logConfig
+
+logging.config.fileConfig(loggingFilename)
 
 # instantiate connection
 if args.region == LOCAL_REGION:
