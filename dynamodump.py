@@ -336,7 +336,7 @@ parser.add_argument("--host", help="Host of local DynamoDB [required only for lo
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
 parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
-parser.add_argument("--logConfig", help="The log config")
+parser.add_argument("--logConfig", help="The path to logging config, if not provided will try to pick logging.config if not found then logging.config.dist")
 args = parser.parse_args()
 
 # set the logging config
