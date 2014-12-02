@@ -10,7 +10,6 @@ SCHEMA_FILE = "schema.json"
 DATA_DIR = "data"
 MAX_RETRY = 6
 LOCAL_REGION = "local"
-LOG_LEVEL = "INFO"
 DUMP_PATH = "dump"
 RESTORE_WRITE_CAPACITY = 100
 THREAD_START_DELAY = 1 #seconds
