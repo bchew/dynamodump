@@ -36,3 +36,6 @@ nosetests.xml
 .pydevproject
 
 dump
+
+# Logging
+logging.config

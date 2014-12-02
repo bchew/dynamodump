@@ -336,14 +336,17 @@ parser.add_argument("--host", help="Host of local DynamoDB [required only for lo
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
 parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
-parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
+parser.add_argument("--logConfig", help="The log config")
 args = parser.parse_args()
 
-# set log level
-log_level = LOG_LEVEL
-if args.log != None:
-  log_level = args.log.upper()
-logging.basicConfig(level=getattr(logging, log_level))
+# set the logging config
+loggingFilename = 'logging.config.dist'
+if os.path.isfile('logging.config'):
+  loggingFilename = 'logging.config'
+if args.logConfig is not None:
+  loggingFilename = args.logConfig
+
+logging.config.fileConfig(loggingFilename)
 
 # instantiate connection
 if args.region == LOCAL_REGION:
