@@ -206,7 +206,7 @@ def do_backup(conn, table_name, read_capacity):
 
   logging.info("Backup for " + table_name + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
-def do_restore(conn, sleep_interval, source_table, destination_table, write_capacity):
+def do_restore(conn, sleep_interval, source_table, destination_table, restore_capacity_ratio, write_capacity):
   logging.info("Starting restore for " + source_table + " to " + destination_table + "..")
 
   # create table using schema
@@ -227,6 +227,12 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_key_schema = table["KeySchema"]
   original_read_capacity = table["ProvisionedThroughput"]["ReadCapacityUnits"]
   original_write_capacity = table["ProvisionedThroughput"]["WriteCapacityUnits"]
+  final_read_capacity =  int(round(original_read_capacity * restore_capacity_ratio, 0))
+  if final_read_capacity < 1:
+    final_read_capacity = 1
+  final_write_capacity = int(round(original_write_capacity * restore_capacity_ratio, 0))
+  if final_write_capacity < 1:
+    final_write_capacity = 1
   table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
   table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
@@ -297,7 +303,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 
   # revert to original table write capacity if it has been modified
   if write_capacity != original_write_capacity:
-    update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
+    update_provisioned_throughput(conn, destination_table, final_read_capacity, final_write_capacity, False)
 
   # loop through each GSI to check if it has changed and update if necessary
   if table_global_secondary_indexes is not None:
@@ -332,6 +338,7 @@ parser.add_argument("--prefixSeparator", help="Specify a different prefix separa
 parser.add_argument("--noSeparator", action='store_true', help="Overrides the use of a prefix separator for backup wildcard searches, [optional]")
 parser.add_argument("--readCapacity", help="Change the temp read capacity of the DynamoDB table to backup from [optional]")
 parser.add_argument("--writeCapacity", help="Change the temp write capacity of the DynamoDB table to restore to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
+parser.add_argument("--restoreCapacityRatio", help="TRatio that defines the final capacity of restored table. By default is 1. Use 2 to get the double capacity and 0.1 to get 10%")
 parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
@@ -344,6 +351,10 @@ log_level = LOG_LEVEL
 if args.log != None:
   log_level = args.log.upper()
 logging.basicConfig(level=getattr(logging, log_level))
+
+restore_capacity_ratio = 1
+if args.restoreCapacityRatio is not None:
+  restore_capacity_ratio =  float(args.restoreCapacityRatio)
 
 # instantiate connection
 if args.region == LOCAL_REGION:
@@ -416,5 +427,5 @@ elif args.mode == "restore":
     logging.info("Restore of table(s) " + args.srcTable + " to " +  dest_table + " completed!")
   else:
     delete_table(conn, sleep_interval, dest_table)
-    do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
+    do_restore(conn, sleep_interval, args.srcTable, dest_table, restore_capacity_ratio, args.writeCapacity)
 

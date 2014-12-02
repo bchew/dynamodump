@@ -42,6 +42,10 @@ optional arguments:
   --writeCapacity WRITECAPACITY
                         Change the temp write capacity of the DynamoDB table
                         to restore to [defaults to 100, optional]
+  --restoreCapacityRatio
+                        Ratio that defines the final capacity of restored table. By default is 1.
+                        Use 2 to get the double capacity and 0.1 to get 10%
+                        [optional]
   --host HOST           Host of local DynamoDB [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
   --accessKey ACCESSKEY
