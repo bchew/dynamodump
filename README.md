@@ -11,7 +11,7 @@ Usage
 -----
 ```
 usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-s SRCTABLE] [-d DESTTABLE]
-                     [--prefixSeparator PREFIXSEPARATOR]
+                     [--prefixSeparator PREFIXSEPARATOR] [--noSeparator]
                      [--readCapacity READCAPACITY]
                      [--writeCapacity WRITECAPACITY] [--host HOST]
                      [--port PORT] [--accessKey ACCESSKEY]
@@ -37,6 +37,8 @@ optional arguments:
   --prefixSeparator PREFIXSEPARATOR
                         Specify a different prefix separator, e.g. '.'
                         [optional]
+  --noSeparator         Overrides the use of a prefix separator for backup
+                        wildcard searches, [optional]
   --readCapacity READCAPACITY
                         Change the temp read capacity of the DynamoDB table to
                         backup from [optional]
