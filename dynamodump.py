@@ -12,7 +12,7 @@ MAX_RETRY = 6
 LOCAL_REGION = "local"
 LOG_LEVEL = "INFO"
 DUMP_PATH = "dump"
-RESTORE_WRITE_CAPACITY = 100
+RESTORE_WRITE_CAPACITY = 25
 THREAD_START_DELAY = 1 #seconds
 CURRENT_WORKING_DIR = os.getcwd()
 DEFAULT_PREFIX_SEPARATOR = "-"
@@ -32,7 +32,9 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
 
   matching_tables = []
   for table_name in all_tables:
-    if separator == None:
+    if table_name_wildcard == "*":
+      matching_tables.append(table_name)
+    elif separator == None:
       if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
         matching_tables.append(table_name)
     elif table_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
@@ -54,7 +56,9 @@ def get_restore_table_matches(table_name_wildcard, separator):
       sys.exit(1)
 
   for dir_name in dir_list:
-    if dir_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
+    if table_name_wildcard == "*":
+      matching_tables.append(dir_name)
+    elif dir_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
       matching_tables.append(dir_name)
 
   return matching_tables
@@ -66,42 +70,43 @@ def change_prefix(source_table_name, source_wildcard, destination_wildcard, sepa
     return destination_prefix + separator + source_table_name.split(separator, 1)[1]
 
 def delete_table(conn, sleep_interval, table_name):
-  while True:
-    # delete table if exists
-    table_exist = True
-    try:
-      conn.delete_table(table_name)
-    except boto.exception.JSONResponseError, e:
-      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-        table_exist = False
-        logging.info(table_name + " table deleted!")
-        break
-      elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-        logging.info("Limit exceeded, retrying deletion of " + table_name + "..")
-        time.sleep(sleep_interval)
-      elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-        logging.info("Control plane limit exceeded, retrying deletion of " + table_name + "..")
-        time.sleep(sleep_interval)
-      elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceInUseException":
-        logging.info(table_name + " table is being deleted..")
-        time.sleep(sleep_interval)
-      else:
-        logging.exception(e)
-        sys.exit(1)
+  if not args.dataOnly:
+    while True:
+      # delete table if exists
+      table_exist = True
+      try:
+        conn.delete_table(table_name)
+      except boto.exception.JSONResponseError, e:
+        if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
+          table_exist = False
+          logging.info(table_name + " table deleted!")
+          break
+        elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+          logging.info("Limit exceeded, retrying deletion of " + table_name + "..")
+          time.sleep(sleep_interval)
+        elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+          logging.info("Control plane limit exceeded, retrying deletion of " + table_name + "..")
+          time.sleep(sleep_interval)
+        elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceInUseException":
+          logging.info(table_name + " table is being deleted..")
+          time.sleep(sleep_interval)
+        else:
+          logging.exception(e)
+          sys.exit(1)
 
-  # if table exists, wait till deleted
-  if table_exist:
-    try:
-      while True:
-        logging.info("Waiting for " + table_name + " table to be deleted.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]")
-        time.sleep(sleep_interval)
-    except boto.exception.JSONResponseError, e:
-      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
-        logging.info(table_name + " table deleted.")
-        pass
-      else:
-        logging.exception(e)
-        sys.exit(1)
+    # if table exists, wait till deleted
+    if table_exist:
+      try:
+        while True:
+          logging.info("Waiting for " + table_name + " table to be deleted.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] +"]")
+          time.sleep(sleep_interval)
+      except boto.exception.JSONResponseError, e:
+        if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
+          logging.info(table_name + " table deleted.")
+          pass
+        else:
+          logging.exception(e)
+          sys.exit(1)
 
 def mkdir_p(path):
   try:
@@ -230,44 +235,45 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
   table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
-  # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
-  if write_capacity == None:
-    if original_write_capacity < RESTORE_WRITE_CAPACITY:
-      write_capacity = RESTORE_WRITE_CAPACITY
-    else:
-      write_capacity = original_write_capacity
-
-  # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
-  original_gsi_write_capacities = []
-  if table_global_secondary_indexes is not None:
-    for gsi in table_global_secondary_indexes:
-      original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
-
-      if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < RESTORE_WRITE_CAPACITY:
-        gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = RESTORE_WRITE_CAPACITY
-
-  # temp provisioned throughput for restore
-  table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
-
-  logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
-
-  while True:
-    try:
-      conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes, table_global_secondary_indexes)
-      break
-    except boto.exception.JSONResponseError, e:
-      if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-        logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
-        time.sleep(sleep_interval)
-      elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-        logging.info("Control plane limit exceeded, retrying creation of " + destination_table + "..")
-        time.sleep(sleep_interval)
+  if not args.dataOnly:
+    # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
+    if write_capacity == None:
+      if original_write_capacity < RESTORE_WRITE_CAPACITY:
+        write_capacity = RESTORE_WRITE_CAPACITY
       else:
-        logging.exception(e)
-        sys.exit(1)
+        write_capacity = original_write_capacity
 
-  # wait for table creation completion
-  wait_for_active_table(conn, destination_table, "created")
+    # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
+    original_gsi_write_capacities = []
+    if table_global_secondary_indexes is not None:
+      for gsi in table_global_secondary_indexes:
+        original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
+
+        if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < RESTORE_WRITE_CAPACITY:
+          gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = RESTORE_WRITE_CAPACITY
+
+    # temp provisioned throughput for restore
+    table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
+
+    logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
+
+    while True:
+      try:
+        conn.create_table(table_attribute_definitions, table_table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes, table_global_secondary_indexes)
+        break
+      except boto.exception.JSONResponseError, e:
+        if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+          logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
+          time.sleep(sleep_interval)
+        elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+          logging.info("Control plane limit exceeded, retrying creation of " + destination_table + "..")
+          time.sleep(sleep_interval)
+        else:
+          logging.exception(e)
+          sys.exit(1)
+
+    # wait for table creation completion
+    wait_for_active_table(conn, destination_table, "created")
 
   # read data files
   logging.info("Restoring data for " + destination_table + " table..")
@@ -295,30 +301,31 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
     if len(put_requests) > 0:
       batch_write(conn, sleep_interval, destination_table, put_requests)
 
-  # revert to original table write capacity if it has been modified
-  if write_capacity != original_write_capacity:
-    update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
+  if not args.dataOnly:
+    # revert to original table write capacity if it has been modified
+    if write_capacity != original_write_capacity:
+      update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
 
-  # loop through each GSI to check if it has changed and update if necessary
-  if table_global_secondary_indexes is not None:
-    gsi_data = []
-    for gsi in table_global_secondary_indexes:
-      original_gsi_write_capacity = original_gsi_write_capacities.pop(0)
-      if original_gsi_write_capacity != gsi["ProvisionedThroughput"]["WriteCapacityUnits"]:
-        gsi_data.append({"Update": { "IndexName" : gsi["IndexName"], "ProvisionedThroughput": { "ReadCapacityUnits": int(gsi["ProvisionedThroughput"]["ReadCapacityUnits"]), "WriteCapacityUnits": int(original_gsi_write_capacity),},},})
+    # loop through each GSI to check if it has changed and update if necessary
+    if table_global_secondary_indexes is not None:
+      gsi_data = []
+      for gsi in table_global_secondary_indexes:
+        original_gsi_write_capacity = original_gsi_write_capacities.pop(0)
+        if original_gsi_write_capacity != gsi["ProvisionedThroughput"]["WriteCapacityUnits"]:
+          gsi_data.append({"Update": { "IndexName" : gsi["IndexName"], "ProvisionedThroughput": { "ReadCapacityUnits": int(gsi["ProvisionedThroughput"]["ReadCapacityUnits"]), "WriteCapacityUnits": int(original_gsi_write_capacity),},},})
 
-    logging.info("Updating " + destination_table + " global secondary indexes write capacities as necessary..")
-    while True:
-      try:
-        conn.update_table(destination_table, global_secondary_index_updates=gsi_data)
-        break
-      except boto.exception.JSONResponseError, e:
-        if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-          logging.info("Limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
-          time.sleep(sleep_interval)
-        elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-          logging.info("Control plane limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
-          time.sleep(sleep_interval)
+      logging.info("Updating " + destination_table + " global secondary indexes write capacities as necessary..")
+      while True:
+        try:
+          conn.update_table(destination_table, global_secondary_index_updates=gsi_data)
+          break
+        except boto.exception.JSONResponseError, e:
+          if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+            logging.info("Limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
+            time.sleep(sleep_interval)
+          elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+            logging.info("Control plane limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
+            time.sleep(sleep_interval)
 
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
@@ -326,7 +333,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore.")
 parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
-parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection")
+parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection or '*' for all tables.")
 parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]")
 parser.add_argument("--prefixSeparator", help="Specify a different prefix separator, e.g. '.' [optional]")
 parser.add_argument("--noSeparator", action='store_true', help="Overrides the use of a prefix separator for backup wildcard searches, [optional]")
@@ -337,6 +344,7 @@ parser.add_argument("--port", help="Port of local DynamoDB [required only for lo
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
 parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
 parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
+parser.add_argument("--dataOnly", action="store_true", default=False, help="Restore data only. Do not delete/recreate schema [optional for restore]")
 args = parser.parse_args()
 
 # set log level
@@ -388,7 +396,8 @@ elif args.mode == "restore":
 
   if dest_table.find("*") != -1:
     matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
-    logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host to be deleted: " + ", ".join(matching_destination_tables))
+    delete_str = ": " if args.dataOnly else " to be deleted: "
+    logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host" + delete_str + ", ".join(matching_destination_tables))
 
     threads = []
     for table_name in matching_destination_tables:
@@ -405,7 +414,10 @@ elif args.mode == "restore":
 
     threads = []
     for source_table in matching_restore_tables:
-      t = threading.Thread(target=do_restore, args=(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table, prefix_separator), args.writeCapacity,))
+      if args.srcTable == "*":
+        t = threading.Thread(target=do_restore, args=(conn, sleep_interval, source_table, source_table, args.writeCapacity))
+      else:
+        t = threading.Thread(target=do_restore, args=(conn, sleep_interval, source_table, change_prefix(source_table, args.srcTable, dest_table, prefix_separator), args.writeCapacity,))
       threads.append(t)
       t.start()
       time.sleep(THREAD_START_DELAY)

@@ -11,11 +11,11 @@ Usage
 -----
 ```
 usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-s SRCTABLE] [-d DESTTABLE]
-                     [--prefixSeparator PREFIXSEPARATOR]
+                     [--prefixSeparator PREFIXSEPARATOR] [--noSeparator]
                      [--readCapacity READCAPACITY]
                      [--writeCapacity WRITECAPACITY] [--host HOST]
                      [--port PORT] [--accessKey ACCESSKEY]
-                     [--secretKey SECRETKEY] [--log LOG]
+                     [--secretKey SECRETKEY] [--log LOG] [--dataOnly]
 
 Simple DynamoDB backup/restore.
 
@@ -27,7 +27,8 @@ optional arguments:
                         local DynamoDB testing.
   -s SRCTABLE, --srcTable SRCTABLE
                         Source DynamoDB table name to backup or restore from,
-                        use 'tablename*' for wildcard prefix selection
+                        use 'tablename*' for wildcard prefix selection or '*'
+                        for all tables.
   -d DESTTABLE, --destTable DESTTABLE
                         Destination DynamoDB table name to backup or restore
                         to, use 'tablename*' for wildcard prefix selection
@@ -36,12 +37,14 @@ optional arguments:
   --prefixSeparator PREFIXSEPARATOR
                         Specify a different prefix separator, e.g. '.'
                         [optional]
+  --noSeparator         Overrides the use of a prefix separator for backup
+                        wildcard searches, [optional]
   --readCapacity READCAPACITY
                         Change the temp read capacity of the DynamoDB table to
                         backup from [optional]
   --writeCapacity WRITECAPACITY
                         Change the temp write capacity of the DynamoDB table
-                        to restore to [defaults to 100, optional]
+                        to restore to [defaults to 25, optional]
   --host HOST           Host of local DynamoDB [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
   --accessKey ACCESSKEY
@@ -50,7 +53,8 @@ optional arguments:
                         Secret key of local DynamoDB [required only for local]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
-
+  --dataOnly            Restore data only. Do not delete/recreate schema
+                        [optional for restore]
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
 ```
@@ -77,6 +81,12 @@ The above, but between different environments (e.g. production-* tables to devel
 python dynamodump.py -m backup -r us-west-1 -s production*
 
 python dynamodump.py -m restore -r us-west-1 -s production* -d development*
+```
+Backup all tables and restore only data (will not delete and recreate schema):
+```
+python dynamodump.py -m backup -r us-west-1 -s "*"
+
+python dynamodump.py -m restore -r us-west-1 -s "*" --dataOnly
 ```
 
 Local example
