@@ -396,8 +396,8 @@ elif args.mode == "restore":
 
   if dest_table.find("*") != -1:
     matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
-    deleteStr = ": " if args.dataOnly else " to be deleted: "
-    logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host" + deleteStr + ", ".join(matching_destination_tables))
+    delete_str = ": " if args.dataOnly else " to be deleted: "
+    logging.info("Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host" + delete_str + ", ".join(matching_destination_tables))
 
     threads = []
     for table_name in matching_destination_tables:
