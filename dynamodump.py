@@ -249,8 +249,8 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
       for gsi in table_global_secondary_indexes:
         original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
 
-        if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < RESTORE_WRITE_CAPACITY:
-          gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = RESTORE_WRITE_CAPACITY
+        if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < int(write_capacity):
+          gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = int(write_capacity)
 
     # temp provisioned throughput for restore
     table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(write_capacity)}
@@ -366,7 +366,7 @@ prefix_separator = DEFAULT_PREFIX_SEPARATOR
 if args.prefixSeparator != None:
   prefix_separator = args.prefixSeparator
 if args.noSeparator == True:
-  prefix_separator = None  
+  prefix_separator = None
 
 # do backup/restore
 start_time = datetime.datetime.now().replace(microsecond=0)
