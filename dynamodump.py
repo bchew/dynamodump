@@ -301,7 +301,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
     if len(put_requests) > 0:
       batch_write(conn, sleep_interval, destination_table, put_requests)
 
-  if not args.dataOnly:
+  if not args.dataOnly and not args.skipThroughputUpdate:
     # revert to original table write capacity if it has been modified
     if write_capacity != original_write_capacity:
       update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
@@ -345,6 +345,7 @@ parser.add_argument("--accessKey", help="Access key of local DynamoDB [required 
 parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
 parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
 parser.add_argument("--dataOnly", action="store_true", default=False, help="Restore data only. Do not delete/recreate schema [optional for restore]")
+parser.add_argument("--skipThroughputUpdate", action="store_true", default=False, help="Skip updating throughput values across tables [optional]")
 args = parser.parse_args()
 
 # set log level

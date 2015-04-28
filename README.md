@@ -55,6 +55,9 @@ optional arguments:
                         [optional]
   --dataOnly            Restore data only. Do not delete/recreate schema
                         [optional for restore]
+  --skipThroughputUpdate
+                        Skip updating throughput values across tables
+                        [optional]
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
 ```
