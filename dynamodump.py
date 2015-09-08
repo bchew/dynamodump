@@ -162,6 +162,51 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
   if wait:
     wait_for_active_table(conn, table_name, "updated")
 
+def do_flush(conn, table_name):    
+  logging.info("Starting flush for " + table_name + "..")
+
+  # get table schema
+  logging.info("Fetching table schema for " + table_name)
+  table_data = conn.describe_table(table_name)
+
+  table_desc = table_data["Table"]
+  table_attribute_definitions = table_desc["AttributeDefinitions"]
+  table_key_schema = table_desc["KeySchema"]
+  original_read_capacity = table_desc["ProvisionedThroughput"]["ReadCapacityUnits"]
+  original_write_capacity = table_desc["ProvisionedThroughput"]["WriteCapacityUnits"]
+  table_local_secondary_indexes = table_desc.get("LocalSecondaryIndexes")
+  table_global_secondary_indexes = table_desc.get("GlobalSecondaryIndexes")
+
+  table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity), "WriteCapacityUnits": int(original_write_capacity)}
+
+  logging.info("Deleting Table " + table_name)
+
+  delete_table(conn, sleep_interval, table_name)
+
+  logging.info("Creating Table " + table_name)
+
+  while True:
+      try:
+        conn.create_table(table_attribute_definitions, table_name, table_key_schema, table_provisioned_throughput, table_local_secondary_indexes, table_global_secondary_indexes)
+        break
+      except boto.exception.JSONResponseError, e:
+        if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+          logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
+          time.sleep(sleep_interval)
+        elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+          logging.info("Control plane limit exceeded, retrying creation of " + destination_table + "..")
+          time.sleep(sleep_interval)
+        else:
+          logging.exception(e)
+          sys.exit(1)
+
+  # wait for table creation completion
+  wait_for_active_table(conn, table_name, "created")
+
+
+
+  logging.info("Recreation of " + table_name + " completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
+
 def do_backup(conn, table_name, read_capacity):
   logging.info("Starting backup for " + table_name + "..")
 
@@ -330,8 +375,8 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 # parse args
-parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore.")
-parser.add_argument("-m", "--mode", help="'backup' or 'restore'")
+parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/flush.")
+parser.add_argument("-m", "--mode", help="'backup' or 'restore' or 'flush'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
 parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection or '*' for all tables.")
 parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]")
@@ -430,4 +475,22 @@ elif args.mode == "restore":
   else:
     delete_table(conn, sleep_interval, dest_table)
     do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
+elif args.mode == "flush":
+  if args.srcTable.find("*") != -1:
+    matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
+    logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to flush: " + ", ".join(matching_backup_tables))
+
+    threads = []
+    for table_name in matching_backup_tables:
+      t = threading.Thread(target=do_flush, args=(conn, table_name))
+      threads.append(t)
+      t.start()
+      time.sleep(THREAD_START_DELAY)
+
+    for thread in threads:
+      thread.join()
+
+    logging.info("Flush of table(s) " + args.srcTable + " completed!")
+  else:
+    do_flush(conn, args.srcTable)
 
