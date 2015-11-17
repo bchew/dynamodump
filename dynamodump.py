@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+#coding: utf-8
+
 import boto.dynamodb2.layer1, json, sys, time, shutil, os, argparse, logging, datetime, threading
 from boto.dynamodb2.layer1 import DynamoDBConnection
 
@@ -131,7 +133,7 @@ def batch_write(conn, sleep_interval, table_name, put_requests):
       request_items = unprocessed_items
       i += 1
     else:
-      logging.info("Max retries reached, failed to processed batch write: " + json.dumps(unprocessed_items, indent=JSON_INDENT))
+      logging.info("Max retries reached, failed to processed batch write: " + json.dumps(unprocessed_items, indent=JSON_INDENT, ensure_ascii=False))
       logging.info("Ignoring and continuing..")
       break
 
@@ -174,7 +176,7 @@ def do_backup(conn, table_name, read_capacity):
   logging.info("Dumping table schema for " + table_name)
   f = open(DUMP_PATH + "/" + table_name + "/" + SCHEMA_FILE, "w+")
   table_desc = conn.describe_table(table_name)
-  f.write(json.dumps(table_desc, indent=JSON_INDENT))
+  f.write(json.dumps(table_desc, indent=JSON_INDENT, ensure_ascii=False))
   f.close()
 
   original_read_capacity = table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
@@ -195,7 +197,7 @@ def do_backup(conn, table_name, read_capacity):
     scanned_table = conn.scan(table_name, exclusive_start_key=last_evaluated_key)
 
     f = open(DUMP_PATH + "/" + table_name + "/" + DATA_DIR + "/" + str(i).zfill(4) + ".json", "w+")
-    f.write(json.dumps(scanned_table, indent=JSON_INDENT))
+    f.write(json.dumps(scanned_table, indent=JSON_INDENT, ensure_ascii=False))
     f.close()
 
     i += 1
