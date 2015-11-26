@@ -3,7 +3,7 @@ dynamodump
 
 Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
-Suitable for DynamoDB usages of smaller data volume which do not warrant the usage of AWS Data Pipeline for backup/restores.
+Suitable for DynamoDB usages of smaller data volume which do not warrant the usage of AWS Data Pipeline for backup/restores/empty.
 
 dynamodump supports local DynamoDB instances as well (tested with [dynalite](https://github.com/mhart/dynalite)).
 
@@ -21,7 +21,7 @@ Simple DynamoDB backup/restore.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -m MODE, --mode MODE  'backup' or 'restore'
+  -m MODE, --mode MODE  'backup' or 'restore' or 'empty'
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Use 'local' for
                         local DynamoDB testing.
