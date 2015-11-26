@@ -162,8 +162,8 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
   if wait:
     wait_for_active_table(conn, table_name, "updated")
 
-def do_flush(conn, table_name):    
-  logging.info("Starting flush for " + table_name + "..")
+def do_empty(conn, table_name):    
+  logging.info("Starting Empty for " + table_name + "..")
 
   # get table schema
   logging.info("Fetching table schema for " + table_name)
@@ -375,8 +375,8 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 # parse args
-parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/flush.")
-parser.add_argument("-m", "--mode", help="'backup' or 'restore' or 'flush'")
+parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/empty.")
+parser.add_argument("-m", "--mode", help="'backup' or 'restore' or 'empty'")
 parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
 parser.add_argument("-s", "--srcTable", help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection or '*' for all tables.")
 parser.add_argument("-d", "--destTable", help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]")
@@ -475,14 +475,14 @@ elif args.mode == "restore":
   else:
     delete_table(conn, sleep_interval, dest_table)
     do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
-elif args.mode == "flush":
+elif args.mode == "empty":
   if args.srcTable.find("*") != -1:
     matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
-    logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to flush: " + ", ".join(matching_backup_tables))
+    logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to empty: " + ", ".join(matching_backup_tables))
 
     threads = []
     for table_name in matching_backup_tables:
-      t = threading.Thread(target=do_flush, args=(conn, table_name))
+      t = threading.Thread(target=do_empty, args=(conn, table_name))
       threads.append(t)
       t.start()
       time.sleep(THREAD_START_DELAY)
@@ -490,7 +490,7 @@ elif args.mode == "flush":
     for thread in threads:
       thread.join()
 
-    logging.info("Flush of table(s) " + args.srcTable + " completed!")
+    logging.info("Empty of table(s) " + args.srcTable + " completed!")
   else:
-    do_flush(conn, args.srcTable)
+    do_empty(conn, args.srcTable)
 
