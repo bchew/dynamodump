@@ -280,7 +280,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
   table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
   table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
-  if not args.dataOnly:
+  if not args.dataOnly and not args.excludeDataRestore:
     # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
     if write_capacity == None:
       if original_write_capacity < RESTORE_WRITE_CAPACITY:
@@ -320,33 +320,36 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
     # wait for table creation completion
     wait_for_active_table(conn, destination_table, "created")
 
-  # read data files
-  logging.info("Restoring data for " + destination_table + " table..")
-  data_file_list = os.listdir(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/")
-  data_file_list.sort()
+  if args.excludeDataRestore in destination_table:
+    logging.info("Not restoring data for " + destination_table + " table..")
+  else:
+    # read data files
+    logging.info("Restoring data for " + destination_table + " table..")
+    data_file_list = os.listdir(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/")
+    data_file_list.sort()
 
-  for data_file in data_file_list:
-    logging.info("Processing " + data_file + " of " + destination_table)
-    items = []
-    item_data = json.load(open(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/" + data_file))
-    items.extend(item_data["Items"])
+    for data_file in data_file_list:
+      logging.info("Processing " + data_file + " of " + destination_table)
+      items = []
+      item_data = json.load(open(dump_data_path + "/" + source_table + "/" + DATA_DIR + "/" + data_file))
+      items.extend(item_data["Items"])
 
-    # batch write data
-    put_requests = []
-    while len(items) > 0:
-      put_requests.append({"PutRequest": {"Item": items.pop(0)}})
+      # batch write data
+      put_requests = []
+      while len(items) > 0:
+        put_requests.append({"PutRequest": {"Item": items.pop(0)}})
 
-      # flush every MAX_BATCH_WRITE
-      if len(put_requests) == MAX_BATCH_WRITE:
-        logging.debug("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
+        # flush every MAX_BATCH_WRITE
+        if len(put_requests) == MAX_BATCH_WRITE:
+          logging.debug("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
+          batch_write(conn, sleep_interval, destination_table, put_requests)
+          del put_requests[:]
+
+      # flush remainder
+      if len(put_requests) > 0:
         batch_write(conn, sleep_interval, destination_table, put_requests)
-        del put_requests[:]
 
-    # flush remainder
-    if len(put_requests) > 0:
-      batch_write(conn, sleep_interval, destination_table, put_requests)
-
-  if not args.dataOnly and not args.skipThroughputUpdate:
+  if not args.dataOnly and not args.skipThroughputUpdate and not args.excludeDataRestore:
     # revert to original table write capacity if it has been modified
     if write_capacity != original_write_capacity:
       update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity, False)
@@ -390,6 +393,7 @@ parser.add_argument("--accessKey", help="Access key of local DynamoDB [required 
 parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
 parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
 parser.add_argument("--dataOnly", action="store_true", default=False, help="Restore data only. Do not delete/recreate schema [optional for restore]")
+parser.add_argument("--excludeDataRestore", help="Partial DynamoDB table name to exclude from restoring data from. Schema will be created. Excludes data from any table containing 'exclude'")
 parser.add_argument("--skipThroughputUpdate", action="store_true", default=False, help="Skip updating throughput values across tables [optional]")
 args = parser.parse_args()
 
