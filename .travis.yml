@@ -4,5 +4,9 @@ python:
   - "2.7"
 install:
   - pip install --use-mirrors -r requirements.txt
+  - pip install flake8
 script:
-  - pyflakes dynamodump.py
+  - flake8 --ignore=E501 .
+
+matrix:
+    fast_finish: true
