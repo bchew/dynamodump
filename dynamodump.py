@@ -313,7 +313,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 
     if not args.dataOnly:
         # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
-        if write_capacity is not None:
+        if write_capacity is None:
             if original_write_capacity < RESTORE_WRITE_CAPACITY:
                 write_capacity = RESTORE_WRITE_CAPACITY
             else:
