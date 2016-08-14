@@ -1,3 +1,5 @@
+[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump)
+
 dynamodump
 ==========
 
