@@ -1,7 +1,7 @@
-[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump)
-
 dynamodump
 ==========
+
+[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump)
 
 Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
