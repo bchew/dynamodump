@@ -88,7 +88,7 @@ def change_prefix(source_table_name, source_wildcard, destination_wildcard, sepa
     source_prefix = source_wildcard.split("*", 1)[0]
     destination_prefix = destination_wildcard.split("*", 1)[0]
     if separator == '':
-        if re.sub( r"([A-Z])", r" \1", source_table_name).split()[0] == source_prefix:
+        if re.sub(r"([A-Z])", r" \1", source_table_name).split()[0] == source_prefix:
             return destination_prefix + re.sub(r"([A-Z])", r" \1", source_table_name).split(' ', 1)[1].replace(" ", "")
     if source_table_name.split(separator, 1)[0] == source_prefix:
         return destination_prefix + separator + source_table_name.split(separator, 1)[1]
