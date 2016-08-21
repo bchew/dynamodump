@@ -1,0 +1,28 @@
+{
+  "Table": {
+    "TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/testTable",
+    "AttributeDefinitions": [
+      {
+        "AttributeName": "id",
+        "AttributeType": "N"
+      }
+    ],
+    "ProvisionedThroughput": {
+      "WriteCapacityUnits": 25,
+      "NumberOfDecreasesToday": 1,
+      "ReadCapacityUnits": 1,
+      "LastDecreaseDateTime": 1471785062.495
+    },
+    "TableSizeBytes": 0,
+    "TableName": "testTable",
+    "TableStatus": "ACTIVE",
+    "KeySchema": [
+      {
+        "KeyType": "HASH",
+        "AttributeName": "id"
+      }
+    ],
+    "ItemCount": 0,
+    "CreationDateTime": 1471785060.962
+  }
+}
