@@ -5,7 +5,6 @@ import logging
 import os
 import shutil
 import threading
-
 import boto.dynamodb2.layer1
 import datetime
 import errno
@@ -101,7 +100,7 @@ def delete_table(conn, sleep_interval, table_name):
             table_exist = True
             try:
                 conn.delete_table(table_name)
-            except boto.exception.JSONResponseError, e:
+            except boto.exception.JSONResponseError as e:
                 if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
                     table_exist = False
                     logging.info(table_name + " table deleted!")
@@ -126,7 +125,7 @@ def delete_table(conn, sleep_interval, table_name):
                     logging.info("Waiting for " + table_name + " table to be deleted.. [" +
                                  conn.describe_table(table_name)["Table"]["TableStatus"] + "]")
                     time.sleep(sleep_interval)
-            except boto.exception.JSONResponseError, e:
+            except boto.exception.JSONResponseError as e:
                 if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
                     logging.info(table_name + " table deleted.")
                     pass
@@ -186,7 +185,7 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
             conn.update_table(table_name,
                               {"ReadCapacityUnits": int(read_capacity), "WriteCapacityUnits": int(write_capacity)})
             break
-        except boto.exception.JSONResponseError, e:
+        except boto.exception.JSONResponseError as e:
             if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
                 logging.info("Limit exceeded, retrying updating throughput of " + table_name + "..")
                 time.sleep(sleep_interval)
@@ -228,7 +227,7 @@ def do_empty(conn, table_name):
             conn.create_table(table_attribute_definitions, table_name, table_key_schema, table_provisioned_throughput,
                               table_local_secondary_indexes, table_global_secondary_indexes)
             break
-        except boto.exception.JSONResponseError, e:
+        except boto.exception.JSONResponseError as e:
             if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
                 logging.info("Limit exceeded, retrying creation of " + table_name + "..")
                 time.sleep(sleep_interval)
@@ -350,7 +349,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
                                   table_provisioned_throughput, table_local_secondary_indexes,
                                   table_global_secondary_indexes)
                 break
-            except boto.exception.JSONResponseError, e:
+            except boto.exception.JSONResponseError as e:
                 if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
                     logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
                     time.sleep(sleep_interval)
@@ -413,7 +412,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
                 try:
                     conn.update_table(destination_table, global_secondary_index_updates=gsi_data)
                     break
-                except boto.exception.JSONResponseError, e:
+                except boto.exception.JSONResponseError as e:
                     if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
                         logging.info(
                             "Limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
