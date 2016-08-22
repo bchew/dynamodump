@@ -11,6 +11,7 @@ import datetime
 import errno
 import sys
 import time
+import re
 from boto.dynamodb2.layer1 import DynamoDBConnection
 
 JSON_INDENT = 2
@@ -49,6 +50,9 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
         elif separator is None:
             if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
                 matching_tables.append(table_name)
+        elif separator == '':
+            if table_name.startswith(re.sub(r"([A-Z])", r" \1", table_name_wildcard.split("*", 1)[0]).split()[0]):
+                matching_tables.append(table_name)
         elif table_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
             matching_tables.append(table_name)
 
@@ -71,6 +75,9 @@ def get_restore_table_matches(table_name_wildcard, separator):
     for dir_name in dir_list:
         if table_name_wildcard == "*":
             matching_tables.append(dir_name)
+        elif separator == '':
+            if dir_name.startswith(re.sub(r"([A-Z])", r" \1", table_name_wildcard.split("*", 1)[0]).split()[0]):
+                matching_tables.append(dir_name)
         elif dir_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
             matching_tables.append(dir_name)
 
@@ -80,6 +87,9 @@ def get_restore_table_matches(table_name_wildcard, separator):
 def change_prefix(source_table_name, source_wildcard, destination_wildcard, separator):
     source_prefix = source_wildcard.split("*", 1)[0]
     destination_prefix = destination_wildcard.split("*", 1)[0]
+    if separator == '':
+        if re.sub(r"([A-Z])", r" \1", source_table_name).split()[0] == source_prefix:
+            return destination_prefix + re.sub(r"([A-Z])", r" \1", source_table_name).split(' ', 1)[1].replace(" ", "")
     if source_table_name.split(separator, 1)[0] == source_prefix:
         return destination_prefix + separator + source_table_name.split(separator, 1)[1]
 
