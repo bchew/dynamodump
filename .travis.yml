@@ -4,8 +4,15 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install flake8
+  - nvm install 4
+  - nvm use 4
+  - npm install dynalite
 script:
-  - flake8 --ignore=E501 .
-
+  - flake8 --ignore=E501 --exclude=node_modules
+  - dynalite --port 4567 &
+  - mkdir dump && cp -a test/testTable dump
+  - python dynamodump.py -m restore -r local -s testTable -d testRestoredTable --host localhost --port 4567 --accessKey a --secretKey a
+  - python dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 4567 --accessKey a --secretKey a
+  - python test/test.py
 matrix:
     fast_finish: true
