@@ -1,0 +1,17 @@
+{
+  "Count": 1, 
+  "Items": [
+    {
+      "lastName": {
+        "S": "Doe"
+      }, 
+      "id": {
+        "N": "1"
+      }, 
+      "firstName": {
+        "S": "John"
+      }
+    }
+  ], 
+  "ScannedCount": 1
+}
