@@ -414,7 +414,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
                     try:
                         conn.update_table(destination_table, global_secondary_index_updates=gsi_data)
                         break
-                except boto.exception.JSONResponseError as e:
+                    except boto.exception.JSONResponseError as e:
                         if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
                             logging.info(
                                 "Limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
