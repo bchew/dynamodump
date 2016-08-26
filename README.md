@@ -1,7 +1,7 @@
 dynamodump
 ==========
 
-[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump)
+[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump)		
 
 Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
@@ -27,6 +27,9 @@ optional arguments:
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Use 'local' for
                         local DynamoDB testing.
+  -p PROFILE, --profile PROFILE
+                        AWS credentials file profile. Use as an alternative to
+                        putting accessKey and secretKey on the command line.
   -s SRCTABLE, --srcTable SRCTABLE
                         Source DynamoDB table name to backup or restore from,
                         use 'tablename*' for wildcard prefix selection or '*'
@@ -55,6 +58,9 @@ optional arguments:
                         Secret key of local DynamoDB [required only for local]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
+  --schemaOnly          Dump or load schema only. Do not backup/restore data. 
+                        Can be used with both backup and restore modes. Cannot
+                        be used with the --dataOnly.
   --dataOnly            Restore data only. Do not delete/recreate schema
                         [optional for restore]
   --skipThroughputUpdate
@@ -92,6 +98,12 @@ Backup all tables and restore only data (will not delete and recreate schema):
 python dynamodump.py -m backup -r us-west-1 -s "*"
 
 python dynamodump.py -m restore -r us-west-1 -s "*" --dataOnly
+```
+Dump all table schemas and create the schemas (e.g. creating blank tables in a different AWS account):
+```
+python dynamodump.py -m backup -r us-west-1 -p source_credentials -s "*" --schemaOnly
+
+python dynamodump.py -m restore -r us-west-1 -p destination_credentials -s "*" --schemaOnly
 ```
 
 Local example
