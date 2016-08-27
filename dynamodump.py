@@ -433,32 +433,32 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/empty.")
 parser.add_argument("-m", "--mode", help="'backup' or 'restore' or 'empty'")
 parser.add_argument("-r", "--region",
-                    help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing.")
+                    help="AWS region to use, e.g. 'us-west-1'. Use '" + LOCAL_REGION + "' for local DynamoDB testing")
+parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
+parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
+parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
+parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
 parser.add_argument("-p", "--profile",
-                    help="AWS profile name to use. Allows to you to choose alternate profile from your AWS credentials file.")
+                    help="AWS credentials file profile to use. Allows you to use a profile instead of accessKey, secretKey authentication")
 parser.add_argument("-s", "--srcTable",
-                    help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection or '*' for all tables.")
+                    help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection or '*' for all tables")
 parser.add_argument("-d", "--destTable",
                     help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]")
 parser.add_argument("--prefixSeparator", help="Specify a different prefix separator, e.g. '.' [optional]")
 parser.add_argument("--noSeparator", action='store_true',
-                    help="Overrides the use of a prefix separator for backup wildcard searches, [optional]")
+                    help="Overrides the use of a prefix separator for backup wildcard searches [optional]")
 parser.add_argument("--readCapacity",
                     help="Change the temp read capacity of the DynamoDB table to backup from [optional]")
 parser.add_argument("--writeCapacity",
                     help="Change the temp write capacity of the DynamoDB table to restore to [defaults to " + str(
                         RESTORE_WRITE_CAPACITY) + ", optional]")
-parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
-parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
-parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
-parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
-parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
 parser.add_argument("--schemaOnly", action="store_true", default=False,
-                    help="Backup or restore the schema only. Do not export/import data. [optional]")
+                    help="Backup or restore the schema only. Do not backup/restore data. Can be used with both backup and restore modes. Cannot be used with the --dataOnly [optional]")
 parser.add_argument("--dataOnly", action="store_true", default=False,
                     help="Restore data only. Do not delete/recreate schema [optional for restore]")
 parser.add_argument("--skipThroughputUpdate", action="store_true", default=False,
                     help="Skip updating throughput values across tables [optional]")
+parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
 args = parser.parse_args()
 
 # set log level

@@ -12,28 +12,36 @@ dynamodump supports local DynamoDB instances as well (tested with [dynalite](htt
 Usage
 -----
 ```
-usage: dynamodump.py [-h] [-m MODE] [-r REGION] [-s SRCTABLE] [-d DESTTABLE]
+usage: dynamodump.py [-h] [-m MODE] [-r REGION] [--host HOST] [--port PORT]
+                     [--accessKey ACCESSKEY] [--secretKey SECRETKEY]
+                     [-p PROFILE] [-s SRCTABLE] [-d DESTTABLE]
                      [--prefixSeparator PREFIXSEPARATOR] [--noSeparator]
                      [--readCapacity READCAPACITY]
-                     [--writeCapacity WRITECAPACITY] [--host HOST]
-                     [--port PORT] [--accessKey ACCESSKEY]
-                     [--secretKey SECRETKEY] [--log LOG] [--dataOnly]
+                     [--writeCapacity WRITECAPACITY] [--schemaOnly]
+                     [--dataOnly] [--skipThroughputUpdate] [--log LOG]
 
-Simple DynamoDB backup/restore.
+Simple DynamoDB backup/restore/empty.
 
 optional arguments:
   -h, --help            show this help message and exit
   -m MODE, --mode MODE  'backup' or 'restore' or 'empty'
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Use 'local' for
-                        local DynamoDB testing.
+                        local DynamoDB testing
+  --host HOST           Host of local DynamoDB [required only for local]
+  --port PORT           Port of local DynamoDB [required only for local]
+  --accessKey ACCESSKEY
+                        Access key of local DynamoDB [required only for local]
+  --secretKey SECRETKEY
+                        Secret key of local DynamoDB [required only for local]
   -p PROFILE, --profile PROFILE
-                        AWS credentials file profile. Use as an alternative to
-                        putting accessKey and secretKey on the command line.
+                        AWS credentials file profile to use. Allows you to use
+                        a profile instead of accessKey, secretKey
+                        authentication
   -s SRCTABLE, --srcTable SRCTABLE
                         Source DynamoDB table name to backup or restore from,
                         use 'tablename*' for wildcard prefix selection or '*'
-                        for all tables.
+                        for all tables
   -d DESTTABLE, --destTable DESTTABLE
                         Destination DynamoDB table name to backup or restore
                         to, use 'tablename*' for wildcard prefix selection
@@ -43,29 +51,25 @@ optional arguments:
                         Specify a different prefix separator, e.g. '.'
                         [optional]
   --noSeparator         Overrides the use of a prefix separator for backup
-                        wildcard searches, [optional]
+                        wildcard searches [optional]
   --readCapacity READCAPACITY
                         Change the temp read capacity of the DynamoDB table to
                         backup from [optional]
   --writeCapacity WRITECAPACITY
                         Change the temp write capacity of the DynamoDB table
                         to restore to [defaults to 25, optional]
-  --host HOST           Host of local DynamoDB [required only for local]
-  --port PORT           Port of local DynamoDB [required only for local]
-  --accessKey ACCESSKEY
-                        Access key of local DynamoDB [required only for local]
-  --secretKey SECRETKEY
-                        Secret key of local DynamoDB [required only for local]
-  --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
+  --schemaOnly          Backup or restore the schema only. Do not
+                        backup/restore data. Can be used with both backup and
+                        restore modes. Cannot be used with the --dataOnly
                         [optional]
-  --schemaOnly          Dump or load schema only. Do not backup/restore data. 
-                        Can be used with both backup and restore modes. Cannot
-                        be used with the --dataOnly.
   --dataOnly            Restore data only. Do not delete/recreate schema
                         [optional for restore]
   --skipThroughputUpdate
                         Skip updating throughput values across tables
                         [optional]
+  --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
+                        [optional]
+
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
 ```
