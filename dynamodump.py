@@ -29,7 +29,7 @@ CURRENT_WORKING_DIR = os.getcwd()
 DEFAULT_PREFIX_SEPARATOR = "-"
 
 
-def get_table_name_matches(conn, table_name_wildcard, separator):
+def get_table_name_matches(conn, table_name_wildcard, separator, excluded_tables_csv):
     all_tables = []
     last_evaluated_table_name = None
 
@@ -55,8 +55,13 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
         elif table_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
             matching_tables.append(table_name)
 
-    return matching_tables
+    return exclude_tables(matching_tables, excluded_tables_csv)
 
+def exclude_tables(tables, excluded_tables_csv):
+    excluded_tables = excluded_tables_csv.split(",")
+    final_tables = [table for table in tables if table not in excluded_tables]
+
+    return final_tables
 
 def get_restore_table_matches(table_name_wildcard, separator):
     matching_tables = []
@@ -444,6 +449,7 @@ parser.add_argument("-s", "--srcTable",
                     help="Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection or '*' for all tables")
 parser.add_argument("-d", "--destTable",
                     help="Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]")
+parser.add_argument("-e","--excludeTables", help="Exclude tables separated by comma [optional]", default="")
 parser.add_argument("--prefixSeparator", help="Specify a different prefix separator, e.g. '.' [optional]")
 parser.add_argument("--noSeparator", action='store_true',
                     help="Overrides the use of a prefix separator for backup wildcard searches [optional]")
@@ -500,7 +506,7 @@ if args.noSeparator is True:
 start_time = datetime.datetime.now().replace(microsecond=0)
 if args.mode == "backup":
     if args.srcTable.find("*") != -1:
-        matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
+        matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator, args.excludeTables)
         logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to backup: " + ", ".join(
             matching_backup_tables))
 
@@ -524,7 +530,7 @@ elif args.mode == "restore":
         dest_table = args.srcTable
 
     if dest_table.find("*") != -1:
-        matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
+        matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator, args.excludeTables)
         delete_str = ": " if args.dataOnly else " to be deleted: "
         logging.info(
             "Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host" + delete_str + ", ".join(
@@ -567,7 +573,7 @@ elif args.mode == "restore":
         do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
 elif args.mode == "empty":
     if args.srcTable.find("*") != -1:
-        matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
+        matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator, args.excludeTables)
         logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to empty: " + ", ".join(
             matching_backup_tables))
 
