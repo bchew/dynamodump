@@ -22,7 +22,7 @@ DATA_DIR = "data"
 MAX_RETRY = 6
 LOCAL_REGION = "local"
 LOG_LEVEL = "INFO"
-DUMP_PATH = "dump"
+DATA_DUMP = "dump"
 RESTORE_WRITE_CAPACITY = 25
 THREAD_START_DELAY = 1  # seconds
 CURRENT_WORKING_DIR = os.getcwd()
@@ -61,9 +61,9 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
 def get_restore_table_matches(table_name_wildcard, separator):
     matching_tables = []
     try:
-        dir_list = os.listdir("./" + DUMP_PATH)
+        dir_list = os.listdir("./" + args.dumpPath)
     except OSError:
-        logging.info("Cannot find \"./%s\", Now trying current working directory.." % DUMP_PATH)
+        logging.info("Cannot find \"./%s\", Now trying current working directory.." % args.dumpPath)
         dump_data_path = CURRENT_WORKING_DIR
         try:
             dir_list = os.listdir(dump_data_path)
@@ -249,13 +249,13 @@ def do_backup(conn, table_name, read_capacity):
     logging.info("Starting backup for " + table_name + "..")
 
     # trash data, re-create subdir
-    if os.path.exists(DUMP_PATH + "/" + table_name):
-        shutil.rmtree(DUMP_PATH + "/" + table_name)
-    mkdir_p(DUMP_PATH + "/" + table_name)
+    if os.path.exists(args.dumpPath + "/" + table_name):
+        shutil.rmtree(args.dumpPath + "/" + table_name)
+    mkdir_p(args.dumpPath + "/" + table_name)
 
     # get table schema
     logging.info("Dumping table schema for " + table_name)
-    f = open(DUMP_PATH + "/" + table_name + "/" + SCHEMA_FILE, "w+")
+    f = open(args.dumpPath + "/" + table_name + "/" + SCHEMA_FILE, "w+")
     table_desc = conn.describe_table(table_name)
     f.write(json.dumps(table_desc, indent=JSON_INDENT))
     f.close()
@@ -270,7 +270,7 @@ def do_backup(conn, table_name, read_capacity):
 
         # get table data
         logging.info("Dumping table items for " + table_name)
-        mkdir_p(DUMP_PATH + "/" + table_name + "/" + DATA_DIR)
+        mkdir_p(args.dumpPath + "/" + table_name + "/" + DATA_DIR)
 
         i = 1
         last_evaluated_key = None
@@ -278,7 +278,7 @@ def do_backup(conn, table_name, read_capacity):
         while True:
             scanned_table = conn.scan(table_name, exclusive_start_key=last_evaluated_key)
 
-            f = open(DUMP_PATH + "/" + table_name + "/" + DATA_DIR + "/" + str(i).zfill(4) + ".json", "w+")
+            f = open(args.dumpPath + "/" + table_name + "/" + DATA_DIR + "/" + str(i).zfill(4) + ".json", "w+")
             f.write(json.dumps(scanned_table, indent=JSON_INDENT))
             f.close()
 
@@ -302,10 +302,10 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 
     # create table using schema
     # restore source_table from dump directory if it exists else try current working directory
-    if os.path.exists("%s/%s" % (DUMP_PATH, source_table)):
-        dump_data_path = DUMP_PATH
+    if os.path.exists("%s/%s" % (args.dumpPath, source_table)):
+        dump_data_path = args.dumpPath
     else:
-        logging.info("Cannot find \"./%s/%s\", Now trying current working directory.." % (DUMP_PATH, source_table))
+        logging.info("Cannot find \"./%s/%s\", Now trying current working directory.." % (args.dumpPath, source_table))
         if os.path.exists("%s/%s" % (CURRENT_WORKING_DIR, source_table)):
             dump_data_path = CURRENT_WORKING_DIR
         else:
@@ -458,6 +458,7 @@ parser.add_argument("--dataOnly", action="store_true", default=False,
                     help="Restore data only. Do not delete/recreate schema [optional for restore]")
 parser.add_argument("--skipThroughputUpdate", action="store_true", default=False,
                     help="Skip updating throughput values across tables [optional]")
+parser.add_argument("--dumpPath", help="Directory to place and search for DynamoDB table backups (defaults to use '" + str(DATA_DUMP) + "') [optional]", default=str(DATA_DUMP))
 parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
 args = parser.parse_args()
 
@@ -542,7 +543,7 @@ elif args.mode == "restore":
 
         matching_restore_tables = get_restore_table_matches(args.srcTable, prefix_separator)
         logging.info(
-            "Found " + str(len(matching_restore_tables)) + " table(s) in " + DUMP_PATH + " to restore: " + ", ".join(
+            "Found " + str(len(matching_restore_tables)) + " table(s) in " + args.dumpPath + " to restore: " + ", ".join(
                 matching_restore_tables))
 
         threads = []

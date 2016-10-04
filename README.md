@@ -67,6 +67,8 @@ optional arguments:
   --skipThroughputUpdate
                         Skip updating throughput values across tables
                         [optional]
+  --dataDump            Directory to place and search for DynamoDB table
+                        backups (defaults to use 'dump') [optional]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
 
