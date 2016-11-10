@@ -18,7 +18,8 @@ usage: dynamodump.py [-h] [-m MODE] [-r REGION] [--host HOST] [--port PORT]
                      [--prefixSeparator PREFIXSEPARATOR] [--noSeparator]
                      [--readCapacity READCAPACITY]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
-                     [--dataOnly] [--skipThroughputUpdate] [--log LOG]
+                     [--dataOnly] [--skipThroughputUpdate]
+                     [--dumpPath DUMPPATH] [--log LOG]
 
 Simple DynamoDB backup/restore/empty.
 
@@ -67,14 +68,13 @@ optional arguments:
   --skipThroughputUpdate
                         Skip updating throughput values across tables
                         [optional]
-  --dataDump            Directory to place and search for DynamoDB table
+  --dumpPath DUMPPATH   Directory to place and search for DynamoDB table
                         backups (defaults to use 'dump') [optional]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
-
+```
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
-```
 
 AWS example
 -----------
