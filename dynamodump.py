@@ -321,26 +321,27 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
     table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
     table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
+    # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
+    if write_capacity is None:
+        if original_write_capacity < RESTORE_WRITE_CAPACITY:
+            write_capacity = RESTORE_WRITE_CAPACITY
+        else:
+            write_capacity = original_write_capacity
+
+    # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
+    original_gsi_write_capacities = []
+    if table_global_secondary_indexes is not None:
+        for gsi in table_global_secondary_indexes:
+            original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
+
+            if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < int(write_capacity):
+                gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = int(write_capacity)
+
+    # temp provisioned throughput for restore
+    table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity),
+                                    "WriteCapacityUnits": int(write_capacity)}
+
     if not args.dataOnly:
-        # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
-        if write_capacity is None:
-            if original_write_capacity < RESTORE_WRITE_CAPACITY:
-                write_capacity = RESTORE_WRITE_CAPACITY
-            else:
-                write_capacity = original_write_capacity
-
-        # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original write capacity is lower
-        original_gsi_write_capacities = []
-        if table_global_secondary_indexes is not None:
-            for gsi in table_global_secondary_indexes:
-                original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
-
-                if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < int(write_capacity):
-                    gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = int(write_capacity)
-
-        # temp provisioned throughput for restore
-        table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity),
-                                        "WriteCapacityUnits": int(write_capacity)}
 
         logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
 
@@ -363,6 +364,11 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 
         # wait for table creation completion
         wait_for_active_table(conn, destination_table, "created")
+    else:
+        # update provisioned capacity
+        if int(write_capacity) > original_write_capacity:
+            update_provisioned_throughput(conn, destination_table, original_read_capacity, write_capacity,
+                                          False)
 
     if not args.schemaOnly:
         # read data files
@@ -391,9 +397,9 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
             if len(put_requests) > 0:
                 batch_write(conn, sleep_interval, destination_table, put_requests)
 
-        if not args.dataOnly and not args.skipThroughputUpdate:
+        if not args.skipThroughputUpdate:
             # revert to original table write capacity if it has been modified
-            if write_capacity != original_write_capacity:
+            if int(write_capacity) != original_write_capacity:
                 update_provisioned_throughput(conn, destination_table, original_read_capacity, original_write_capacity,
                                               False)
 
