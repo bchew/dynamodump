@@ -16,7 +16,7 @@ from boto.dynamodb2.layer1 import DynamoDBConnection
 JSON_INDENT = 2
 AWS_SLEEP_INTERVAL = 10  # seconds
 LOCAL_SLEEP_INTERVAL = 1  # seconds
-BATCH_WRITE_SLEEP_INTERVAL = 0.15 # seconds
+BATCH_WRITE_SLEEP_INTERVAL = 0.15  # seconds
 MAX_BATCH_WRITE = 25  # DynamoDB limit
 SCHEMA_FILE = "schema.json"
 DATA_DIR = "data"
@@ -437,6 +437,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
             datetime.datetime.now().replace(microsecond=0) - start_time))
     else:
         logging.info("Empty schema of " + source_table + " table created. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
+
 
 # parse args
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/empty.")
