@@ -433,6 +433,9 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
                                 "Control plane limit exceeded, retrying updating throughput of GlobalSecondaryIndexes in " + destination_table + "..")
                             time.sleep(sleep_interval)
 
+        # wait for table to become active
+        wait_for_active_table(conn, destination_table, "active")
+
         logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(
             datetime.datetime.now().replace(microsecond=0) - start_time))
     else:
