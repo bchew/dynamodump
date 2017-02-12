@@ -37,5 +37,6 @@ class TestDynamoDump(unittest.TestCase):
     def test_data(self):
         self.assertEqual(self.test_table_data, self.restored_test_table_data)
 
+
 if __name__ == '__main__':
     unittest.main()
