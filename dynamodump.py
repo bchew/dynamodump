@@ -503,6 +503,12 @@ else:
         sleep_interval = AWS_SLEEP_INTERVAL
 
 
+# don't proceed if connection is not established
+if not conn:
+    logging.info('Unable to establish connection with dynamodb')
+    sys.exit(1)
+
+
 # set prefix separator
 prefix_separator = DEFAULT_PREFIX_SEPARATOR
 if args.prefixSeparator is not None:
