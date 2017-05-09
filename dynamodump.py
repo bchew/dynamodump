@@ -603,5 +603,6 @@ def main():
         else:
             do_empty(conn, args.srcTable)
 
+
 if __name__ == "__main__":
     main()
