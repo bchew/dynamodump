@@ -263,6 +263,24 @@ def do_archive(archive_type, dump_path):
         return False, None
 
 
+class RateLimiter:
+
+    def __init__(self, permits_per_second):
+        self.permits_per_second = permits_per_second
+        self.consumed_permits = 0
+        self.start_time_seconds = time.time()
+
+    def acquire(self, permits=1):
+        self.consumed_permits += permits
+
+        duration_seconds = time.time() - self.start_time_seconds
+        expected_consumed_permits = self.permits_per_second * duration_seconds
+        sleep_duration_seconds = (self.consumed_permits - expected_consumed_permits) / self.permits_per_second
+
+        if sleep_duration_seconds > 0:
+            time.sleep(sleep_duration_seconds)
+
+
 def get_table_name_matches(conn, table_name_wildcard, separator):
     """
     Find tables to backup
@@ -600,11 +618,14 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, read_capaci
                 i = 1
                 last_evaluated_key = None
 
+                rate_limiter = RateLimiter(backup_read_capacity)
+
                 while True:
                     try:
                         scanned_table = dynamo.scan(table_name,
                                                     exclusive_start_key=last_evaluated_key,
-                                                    limit=limit)
+                                                    limit=limit,
+                                                    return_consumed_capacity="TOTAL")
                     except ProvisionedThroughputExceededException:
                         logging.error("EXCEEDED THROUGHPUT ON TABLE " +
                                       table_name + ".  BACKUP FOR IT IS USELESS.")
@@ -618,6 +639,10 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, read_capaci
                     f.close()
 
                     i += 1
+
+                    consumed_capacity = scanned_table["ConsumedCapacity"]["CapacityUnits"]
+                    logging.debug("Consumed capacity: %s" % consumed_capacity)
+                    rate_limiter.acquire(consumed_capacity)
 
                     try:
                         last_evaluated_key = scanned_table["LastEvaluatedKey"]
@@ -633,7 +658,8 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, read_capaci
                                                   False)
 
                 logging.info("Backup for " + table_name + " table completed. Time taken: " + str(
-                    datetime.datetime.now().replace(microsecond=0) - start_time))
+                    datetime.datetime.now().replace(microsecond=0) - start_time) +
+                    ", Consumed: %s read units" % rate_limiter.consumed_permits)
 
             tableQueue.task_done()
 

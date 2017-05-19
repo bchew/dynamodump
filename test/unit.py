@@ -1,4 +1,5 @@
 import unittest
+import mock
 
 import dynamodump
 
@@ -20,3 +21,18 @@ class TestDynamoDumpUtils(unittest.TestCase):
         limit = dynamodump.calculate_limit(table_desc, read_capacity)
 
         self.assertEqual(limit, 320)
+
+
+class TestRateLimiter(unittest.TestCase):
+
+    @mock.patch('time.sleep')
+    def test_rate_limiter(self, sleep):
+        with mock.patch('time.time', return_value=10.0):
+            rate_limiter = dynamodump.RateLimiter(5)
+
+        with mock.patch('time.time', return_value=11.0):
+            rate_limiter.acquire(10)
+
+        self.assertEqual(rate_limiter.consumed_permits, 10)
+        sleep.assert_called_once_with(1)
+
