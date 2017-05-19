@@ -554,8 +554,11 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
                 original_write_capacity = \
                     table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
 
+                if read_capacity is None:
+                    read_capacity = original_read_capacity
+
                 # override table read capacity if specified
-                if read_capacity is not None and read_capacity != original_read_capacity:
+                if read_capacity != original_read_capacity:
                     update_provisioned_throughput(dynamo, table_name,
                                                   read_capacity, original_write_capacity)
 
@@ -590,7 +593,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
                         break
 
                 # revert back to original table read capacity if specified
-                if read_capacity is not None and read_capacity != original_read_capacity:
+                if read_capacity != original_read_capacity:
                     update_provisioned_throughput(dynamo,
                                                   table_name,
                                                   original_read_capacity,
