@@ -35,4 +35,3 @@ class TestRateLimiter(unittest.TestCase):
 
         self.assertEqual(rate_limiter.consumed_permits, 10)
         sleep.assert_called_once_with(1)
-
