@@ -443,6 +443,7 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
     else:
         logging.info("Empty schema of " + source_table + " table created. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
+
 def get_credentials(profile, region):
     token = os.environ.get('AWS_SESSION_TOKEN')
     if token:
@@ -453,6 +454,7 @@ def get_credentials(profile, region):
         return None
     credentials = session.get_credentials()
     return credentials
+
 
 # parse args
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/empty.")
