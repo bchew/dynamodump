@@ -445,9 +445,6 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
 
 
 def get_credentials(profile, region):
-    token = os.environ.get('AWS_SESSION_TOKEN')
-    if token:
-        return token
     try:
         session = boto3.Session(profile_name=profile, region_name=region)
     except BotoCoreError:
