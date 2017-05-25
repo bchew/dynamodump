@@ -12,6 +12,8 @@ import sys
 import time
 import re
 from boto.dynamodb2.layer1 import DynamoDBConnection
+from botocore.exceptions import BotoCoreError
+import boto3
 
 JSON_INDENT = 2
 AWS_SLEEP_INTERVAL = 10  # seconds
@@ -441,6 +443,16 @@ def do_restore(conn, sleep_interval, source_table, destination_table, write_capa
     else:
         logging.info("Empty schema of " + source_table + " table created. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
+def get_credentials(profile, region):
+    token = os.environ.get('AWS_SESSION_TOKEN')
+    if token:
+        return token
+    try:
+        session = boto3.Session(profile_name=profile, region_name=region)
+    except BotoCoreError:
+        return None
+    credentials = session.get_credentials()
+    return credentials
 
 # parse args
 parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/empty.")
@@ -451,6 +463,7 @@ parser.add_argument("--host", help="Host of local DynamoDB [required only for lo
 parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
 parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
 parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
+parser.add_argument("--sessionToken", help="Session token for AWS profile, aka security token [required for temporary AWS sessions unless profile specified]")
 parser.add_argument("-p", "--profile",
                     help="AWS credentials file profile to use. Allows you to use a profile instead of accessKey, secretKey authentication")
 parser.add_argument("-s", "--srcTable",
@@ -496,10 +509,14 @@ if args.region == LOCAL_REGION:
 else:
     if not args.profile:
         conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
-                                                aws_secret_access_key=args.secretKey)
+                                                aws_secret_access_key=args.secretKey,
+                                                security_token=args.sessionToken)
         sleep_interval = AWS_SLEEP_INTERVAL
     else:
-        conn = boto.dynamodb2.connect_to_region(args.region, profile_name=args.profile)
+        credentials = get_credentials(profile=args.profile, region=args.region)
+        conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=credentials.access_key,
+                                                aws_secret_access_key=credentials.secret_key,
+                                                security_token=credentials.token)
         sleep_interval = AWS_SLEEP_INTERVAL
 
 
