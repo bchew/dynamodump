@@ -12,11 +12,11 @@ dynamodump supports local DynamoDB instances as well (tested with [dynalite](htt
 Usage
 -----
 ```
-usage: dynamodump.py [-h] [-m MODE] [-r REGION] [--host HOST] [--port PORT]
-                     [--accessKey ACCESSKEY] [--secretKey SECRETKEY]
-                     [-p PROFILE] [-s SRCTABLE] [-d DESTTABLE]
-                     [--prefixSeparator PREFIXSEPARATOR] [--noSeparator]
-                     [--readCapacity READCAPACITY]
+usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET] [-m MODE] [-r REGION]
+                     [--host HOST] [--port PORT] [--accessKey ACCESSKEY]
+                     [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE]
+                     [-d DESTTABLE] [--prefixSeparator PREFIXSEPARATOR]
+                     [--noSeparator] [--readCapacity READCAPACITY] [-t TAG]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
                      [--dataOnly] [--skipThroughputUpdate]
                      [--dumpPath DUMPPATH] [--log LOG]
@@ -25,9 +25,16 @@ Simple DynamoDB backup/restore/empty.
 
 optional arguments:
   -h, --help            show this help message and exit
+  -a {zip,tar}, --archive {zip,tar}
+                        Type of compressed archive to create.If unset, don't
+                        create archive
+  -b BUCKET, --bucket BUCKET
+                        S3 bucket in which to store or retrieve backups.[must
+                        already exist]
   -m MODE, --mode MODE  'backup' or 'restore' or 'empty'
   -r REGION, --region REGION
-                        AWS region to use, e.g. 'us-west-1'. Use 'local' for
+                        AWS region to use, e.g. 'us-west-1'. Can use
+                        AWS_DEFAULT_REGION for local testing. Use 'local' for
                         local DynamoDB testing
   --host HOST           Host of local DynamoDB [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
@@ -42,7 +49,7 @@ optional arguments:
   -s SRCTABLE, --srcTable SRCTABLE
                         Source DynamoDB table name to backup or restore from,
                         use 'tablename*' for wildcard prefix selection or '*'
-                        for all tables
+                        for all tables. Mutually exclusive with --tag
   -d DESTTABLE, --destTable DESTTABLE
                         Destination DynamoDB table name to backup or restore
                         to, use 'tablename*' for wildcard prefix selection
@@ -56,6 +63,8 @@ optional arguments:
   --readCapacity READCAPACITY
                         Change the temp read capacity of the DynamoDB table to
                         backup from [optional]
+  -t TAG, --tag TAG     Tag to use for identifying tables to back up. Mutually
+                        exclusive with srcTable. Provided as KEY=VALUE
   --writeCapacity WRITECAPACITY
                         Change the temp write capacity of the DynamoDB table
                         to restore to [defaults to 25, optional]
@@ -110,6 +119,24 @@ Dump all table schemas and create the schemas (e.g. creating blank tables in a d
 python dynamodump.py -m backup -r us-west-1 -p source_credentials -s "*" --schemaOnly
 
 python dynamodump.py -m restore -r us-west-1 -p destination_credentials -s "*" --schemaOnly
+```
+
+Backup all tables based on AWS tag `key=value`
+```
+python dynamodump.py -p profile -r us-east-1 -m backup -t KEY=VALUE
+```
+
+Backup all tables based on AWS tag, compress and store in specified S3 bucket.
+```
+python dynamodump.py -p profile -r us-east-1 -m backup -a tar -b some_s3_bucket -t TAG_KEY=TAG_VALUE
+
+python dynamodump.py -p profile -r us-east-1 -m backup -a zip -b some_s3_bucket -t TAG_KEY=TAG_VALUE
+```
+
+Restore from S3 bucket to specified destination table
+```
+## source_table identifies archive file in S3 bucket from which backup data is restored
+python2 dynamodump.py -a tar -b some_s3_bucket -m restore -r us-east-1 -p profile -d destination_table -s source_table
 ```
 
 Local example
