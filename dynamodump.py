@@ -503,12 +503,10 @@ def main():
             conn = boto.dynamodb2.connect_to_region(args.region, profile_name=args.profile)
             sleep_interval = AWS_SLEEP_INTERVAL
 
-
     # don't proceed if connection is not established
     if not conn:
         logging.info('Unable to establish connection with dynamodb')
         sys.exit(1)
-
 
     # set prefix separator
     prefix_separator = DEFAULT_PREFIX_SEPARATOR
