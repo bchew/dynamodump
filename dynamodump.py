@@ -160,7 +160,8 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
             Bucket=bucket
         )
     except botocore.exceptions.ClientError as e:
-        logging.exception("S3 bucket " + bucket + " does not exist.  Can't get backup file\n\n" + str(e))
+        logging.exception("S3 bucket " + bucket + " does not exist. "
+                          "Can't get backup file\n\n" + str(e))
         sys.exit(1)
 
     try:
@@ -179,7 +180,8 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
             filename = d["Key"]
 
     if not filename:
-        logging.exception("Unable to find file to restore from.  Confirm the name of the table you're restoring.")
+        logging.exception("Unable to find file to restore from.  "
+                          "Confirm the name of the table you're restoring.")
         sys.exit(1)
 
     output_file = "/tmp/" + os.path.basename(filename)
@@ -197,7 +199,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
             sys.exit(1)
         except tarfile.ExtractError as e:
             # ExtractError is raised for non-fatal errors on extract method
-            logging.warn("Error during extraction: " + str(e))
+            logging.error("Error during extraction: " + str(e))
 
     # Assuming zip file here since we're only supporting tar and zip at this time
     else:
@@ -259,6 +261,10 @@ def do_archive(archive_type, dump_path):
 
 
 def get_table_name_matches(conn, table_name_wildcard, separator):
+    """
+    Find tables to backup
+    """
+
     all_tables = []
     last_evaluated_table_name = None
 
@@ -289,6 +295,10 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
 
 
 def get_restore_table_matches(table_name_wildcard, separator):
+    """
+    Find tables to restore
+    """
+
     matching_tables = []
     try:
         dir_list = os.listdir("./" + args.dumpPath)
@@ -318,6 +328,10 @@ def get_restore_table_matches(table_name_wildcard, separator):
 
 
 def change_prefix(source_table_name, source_wildcard, destination_wildcard, separator):
+    """
+    Update prefix used for searching tables
+    """
+
     source_prefix = source_wildcard.split("*", 1)[0]
     destination_prefix = destination_wildcard.split("*", 1)[0]
     if separator == "":
@@ -329,6 +343,10 @@ def change_prefix(source_table_name, source_wildcard, destination_wildcard, sepa
 
 
 def delete_table(conn, sleep_interval, table_name):
+    """
+    Delete table table_name
+    """
+
     if not args.dataOnly:
         while True:
             # delete table if exists
@@ -371,6 +389,10 @@ def delete_table(conn, sleep_interval, table_name):
 
 
 def mkdir_p(path):
+    """
+    Create directory to hold dump
+    """
+
     try:
         os.makedirs(path)
     except OSError as exc:
@@ -381,6 +403,10 @@ def mkdir_p(path):
 
 
 def batch_write(conn, sleep_interval, table_name, put_requests):
+    """
+    Write data to table_name
+    """
+
     request_items = {table_name: put_requests}
     i = 1
     sleep = sleep_interval
@@ -406,6 +432,10 @@ def batch_write(conn, sleep_interval, table_name, put_requests):
 
 
 def wait_for_active_table(conn, table_name, verb):
+    """
+    Wait for table to be indesired state
+    """
+
     while True:
         if conn.describe_table(table_name)["Table"]["TableStatus"] != "ACTIVE":
             logging.info("Waiting for " + table_name + " table to be " + verb + ".. [" +
@@ -497,6 +527,9 @@ def do_empty(dynamo, table_name):
 
 
 def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
+    """
+    Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
+    """
 
     if srcTable:
         table_name = srcTable
@@ -755,57 +788,67 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
 
 def main():
+    """
+    Entrypoint to the script
+    """
+
     global args, sleep_interval, start_time
+
     # parse args
     parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/empty.")
     parser.add_argument("-a", "--archive", help="Type of compressed archive to create."
-                    "If unset, don't create archive", choices=['zip', 'tar'])
+                        "If unset, don't create archive", choices=["zip", "tar"])
     parser.add_argument("-b", "--bucket", help="S3 bucket in which to store or retrieve backups."
-                    "[must already exist]")
-    parser.add_argument("-m", "--mode", help="'backup' or 'restore' or 'empty'")
-    parser.add_argument("-r", "--region",
-                        help="AWS region to use, e.g. 'us-west-1'. Can use AWS_DEFAULT_REGION "
-			"for local testing.  Use '" + LOCAL_REGION + "' for local DynamoDB testing")
+                        "[must already exist]")
+    parser.add_argument("-m", "--mode", help="Operation to perform",
+                        choices=["backup", "restore", "empty"])
+    parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. "
+                        "Can use AWS_DEFAULT_REGION for local testing.  Use '" +
+                        LOCAL_REGION + "' for local DynamoDB testing")
     parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
     parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
-    parser.add_argument("--accessKey", help="Access key of local DynamoDB [required only for local]")
-    parser.add_argument("--secretKey", help="Secret key of local DynamoDB [required only for local]")
+    parser.add_argument("--accessKey", help="Access key of local DynamoDB "
+                        "[required only for local]")
+    parser.add_argument("--secretKey", help="Secret key of local DynamoDB "
+                        "[required only for local]")
     parser.add_argument("-p", "--profile",
-                        help="AWS credentials file profile to use. Allows you to use a profile instead "
-			"of accessKey, secretKey authentication")
+                        help="AWS credentials file profile to use. Allows you to use a "
+                        "profile instead accessKey, secretKey authentication")
     parser.add_argument("-s", "--srcTable",
-                        help="Source DynamoDB table name to backup or restore from, use 'tablename*' "
-			"for wildcard prefix selection or '*' for all tables.  Mutually exclusive "
-			"with --tag")
+                        help="Source DynamoDB table name to backup or restore from, "
+                        "use 'tablename*' for wildcard prefix selection or '*' for "
+                        "all tables.  Mutually exclusive with --tag")
     parser.add_argument("-d", "--destTable",
-                        help="Destination DynamoDB table name to backup or restore to, use 'tablename*' "
-			"for wildcard prefix selection (defaults to use '-' separator) "
-			"[optional, defaults to source]")
+                        help="Destination DynamoDB table name to backup or restore to, "
+                        "use 'tablename*' for wildcard prefix selection "
+                        "(defaults to use '-' separator) [optional, defaults to source]")
     parser.add_argument("--prefixSeparator", help="Specify a different prefix separator, "
-			"e.g. '.' [optional]")
+			                     "e.g. '.' [optional]")
     parser.add_argument("--noSeparator", action='store_true',
                         help="Overrides the use of a prefix separator for backup wildcard "
-			"searches [optional]")
+			                     "searches [optional]")
     parser.add_argument("--readCapacity",
                         help="Change the temp read capacity of the DynamoDB table to backup "
-			from [optional]")
-    parser.add_argument("-t", "--tag",
-                    help="Tag to use for identifying tables to back up.  Mutually exclusive with "
-                    "srcTable.  Provided as KEY=VALUE")
+			                     "from [optional]")
+    parser.add_argument("-t", "--tag", help="Tag to use for identifying tables to back up.  "
+                        "Mutually exclusive with srcTable.  Provided as KEY=VALUE")
     parser.add_argument("--writeCapacity",
                         help="Change the temp write capacity of the DynamoDB table to restore "
-			"to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
+			                     "to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
     parser.add_argument("--schemaOnly", action="store_true", default=False,
                         help="Backup or restore the schema only. Do not backup/restore data. "
-			"Can be used with both backup and restore modes. Cannot be used with "
-			"the --dataOnly [optional]")
+                        "Can be used with both backup and restore modes. Cannot be used with "
+                        "the --dataOnly [optional]")
     parser.add_argument("--dataOnly", action="store_true", default=False,
-                        help="Restore data only. Do not delete/recreate schema [optional for restore]")
+                        help="Restore data only. Do not delete/recreate schema [optional for "
+                        "restore]")
     parser.add_argument("--skipThroughputUpdate", action="store_true", default=False,
                         help="Skip updating throughput values across tables [optional]")
-    parser.add_argument("--dumpPath", help="Directory to place and search for DynamoDB table backups "
-			"(defaults to use '" + str(DATA_DUMP) + "') [optional]", default=str(DATA_DUMP))
-    parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]")
+    parser.add_argument("--dumpPath", help="Directory to place and search for DynamoDB table "
+                        "backups (defaults to use '" + str(DATA_DUMP) + "') [optional]",
+                        default=str(DATA_DUMP))
+    parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL "
+                        "[optional]")
     args = parser.parse_args()
 
     # set log level
@@ -822,10 +865,10 @@ def main():
     # instantiate connection
     if args.region == LOCAL_REGION:
         conn = boto.dynamodb2.layer1.DynamoDBConnection(aws_access_key_id=args.accessKey,
-							aws_secret_access_key=args.secretKey,
-							host=args.host,
-							port=int(args.port),
-							is_secure=False)
+                                                        aws_secret_access_key=args.secretKey,
+                                                        host=args.host,
+                                                        port=int(args.port),
+                                                        is_secure=False)
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
         if not args.profile:
@@ -838,7 +881,7 @@ def main():
 
     # don't proceed if connection is not established
     if not conn:
-        logging.info('Unable to establish connection with dynamodb')
+        logging.info("Unable to establish connection with dynamodb")
         sys.exit(1)
 
     # set prefix separator
@@ -865,8 +908,8 @@ def main():
             sys.exit(0)
         else:
             logging.info("Found " + str(len(matching_backup_tables)) +
-                        " table(s) in DynamoDB host to backup: " +
-                        ", ".join(matching_backup_tables))
+                         " table(s) in DynamoDB host to backup: " +
+                         ", ".join(matching_backup_tables))
 
         try:
             if args.srcTable.find("*") == -1:
@@ -879,7 +922,7 @@ def main():
 
             for i in range(MAX_NUMBER_BACKUP_WORKERS):
                 t = threading.Thread(target=do_backup, args=(conn, args.readCapacity),
-                                    kwargs={'tableQueue': q})
+                                     kwargs={"tableQueue": q})
                 t.start()
                 threads.append(t)
                 time.sleep(THREAD_START_DELAY)
@@ -897,7 +940,8 @@ def main():
             try:
                 logging.info("Backup of table(s) " + args.srcTable + " completed!")
             except (NameError, TypeError):
-                logging.info("Backup of table(s) " + ", ".join(matching_backup_tables) + " completed!")
+                logging.info("Backup of table(s) " +
+                             ", ".join(matching_backup_tables) + " completed!")
 
             if args.archive:
                 if args.tag:
@@ -905,7 +949,11 @@ def main():
                         dump_path = args.dumpPath + os.sep + table
                         did_archive, archive_file = do_archive(args.archive, dump_path)
                         if args.bucket and did_archive:
-                            do_put_bucket_object(args.profile, args.region, args.bucket, archive_file)
+                            do_put_bucket_object(args.profile,
+                                                 args.region,
+                                                 args.bucket,
+                                                 archive_file
+                                                )
                 else:
                     did_archive, archive_file = do_archive(args.archive, args.dumpPath)
 
@@ -950,19 +998,19 @@ def main():
             for source_table in matching_restore_tables:
                 if args.srcTable == "*":
                     t = threading.Thread(target=do_restore,
-                                        args=(conn,
-                                            sleep_interval,
-                                            source_table,
-                                            source_table,
-                                            args.writeCapacity))
+                                         args=(conn,
+                                               sleep_interval,
+                                               source_table,
+                                               source_table,
+                                               args.writeCapacity))
                 else:
                     t = threading.Thread(target=do_restore,
-                                        args=(conn, sleep_interval, source_table,
-                                            change_prefix(source_table,
-                                                            args.srcTable,
-                                                            dest_table,
-                                                            prefix_separator),
-                                            args.writeCapacity))
+                                         args=(conn, sleep_interval, source_table,
+                                               change_prefix(source_table,
+                                                             args.srcTable,
+                                                             dest_table,
+                                                             prefix_separator),
+                                               args.writeCapacity))
                 threads.append(t)
                 t.start()
                 time.sleep(THREAD_START_DELAY)
@@ -970,7 +1018,8 @@ def main():
             for thread in threads:
                 thread.join()
 
-            logging.info("Restore of table(s) " + args.srcTable + " to " + dest_table + " completed!")
+            logging.info("Restore of table(s) " + args.srcTable + " to " +
+                         dest_table + " completed!")
         else:
             delete_table(conn, sleep_interval, dest_table)
             do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
@@ -978,8 +1027,8 @@ def main():
         if args.srcTable.find("*") != -1:
             matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
             logging.info("Found " + str(len(matching_backup_tables)) +
-                        " table(s) in DynamoDB host to empty: " + ", ".join(
-                            matching_backup_tables))
+                         " table(s) in DynamoDB host to empty: " +
+                         ", ".join(matching_backup_tables))
 
             threads = []
             for table in matching_backup_tables:
