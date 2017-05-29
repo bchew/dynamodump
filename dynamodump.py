@@ -45,7 +45,7 @@ THREAD_START_DELAY = 1  # seconds
 CURRENT_WORKING_DIR = os.getcwd()
 DEFAULT_PREFIX_SEPARATOR = "-"
 MAX_NUMBER_BACKUP_WORKERS = 25
-METADATA_URL = 'http://169.254.169.254/latest/meta-data/'
+METADATA_URL = "http://169.254.169.254/latest/meta-data/"
 
 
 def _get_aws_client(profile, region, service):
@@ -56,12 +56,12 @@ def _get_aws_client(profile, region, service):
     if region:
         aws_region = region
     else:
-        aws_region = os.getenv('AWS_DEFAULT_REGION')
+        aws_region = os.getenv("AWS_DEFAULT_REGION")
 
     # Fallback to querying metadata for region
     if not aws_region:
         try:
-            azone = urllib2.urlopen(METADATA_URL + 'placement/availability-zone',
+            azone = urllib2.urlopen(METADATA_URL + "placement/availability-zone",
                                     data=None, timeout=5).read().decode()
             aws_region = azone[:-1]
         except urllib2.URLError:
@@ -89,28 +89,28 @@ def get_table_name_by_tag(profile, region, tag):
 
     matching_tables = []
     all_tables = []
-    sts = _get_aws_client(profile, region, 'sts')
-    dynamo = _get_aws_client(profile, region, 'dynamodb')
-    account_number = sts.get_caller_identity().get('Account')
-    paginator = dynamo.get_paginator('list_tables')
-    tag_key = tag.split('=')[0]
-    tag_value = tag.split('=')[1]
+    sts = _get_aws_client(profile, region, "sts")
+    dynamo = _get_aws_client(profile, region, "dynamodb")
+    account_number = sts.get_caller_identity().get("Account")
+    paginator = dynamo.get_paginator("list_tables")
+    tag_key = tag.split("=")[0]
+    tag_value = tag.split("=")[1]
 
     get_all_tables = paginator.paginate()
     for page in get_all_tables:
-        for table in page['TableNames']:
+        for table in page["TableNames"]:
             all_tables.append(table)
             logging.debug("Found table " + table)
 
     for table in all_tables:
-        table_arn = 'arn:aws:dynamodb:{}:{}:table/{}'.format(region, account_number, table)
+        table_arn = "arn:aws:dynamodb:{}:{}:table/{}".format(region, account_number, table)
         table_tags = dynamo.list_tags_of_resource(
             ResourceArn=table_arn
         )
-        for found_tag in table_tags['Tags']:
-            if found_tag['Key'] == tag_key:
-                logging.debug("Checking table " + table + " tag " + found_tag['Key'])
-                if found_tag['Value'] == tag_value:
+        for found_tag in table_tags["Tags"]:
+            if found_tag["Key"] == tag_key:
+                logging.debug("Checking table " + table + " tag " + found_tag["Key"])
+                if found_tag["Value"] == tag_value:
                     matching_tables.append(table)
                     logging.info("Matched table " + table)
 
@@ -126,12 +126,12 @@ def do_put_bucket_object(profile, region, bucket, bucket_object):
     bucket_object is file to be uploaded
     """
 
-    s3 = _get_aws_client(profile, region, 's3')
+    s3 = _get_aws_client(profile, region, "s3")
     logging.info("Uploading backup to S3 bucket " + bucket)
     try:
         s3.upload_file(bucket_object, bucket, bucket_object,
                        ExtraArgs={
-                           'ServerSideEncryption': 'AES256'
+                           "ServerSideEncryption": "AES256"
                        })
     except botocore.exceptions.ClientError as e:
         logging.exception("Failed to put file to S3 bucket\n\n" + str(e))
@@ -146,13 +146,13 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     filename is args.dumpPath.  File would be "args.dumpPath" with suffix .tar.bz2 or .zip
     """
 
-    s3 = _get_aws_client(profile, region, 's3')
+    s3 = _get_aws_client(profile, region, "s3")
 
     if archive:
-        if archive == 'tar':
-            archive_type = 'tar.bz2'
+        if archive == "tar":
+            archive_type = "tar.bz2"
         else:
-            archive_type = 'zip'
+            archive_type = "zip"
 
     # Make sure bucket exists before continuing
     try:
@@ -174,15 +174,15 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     # Script will always overwrite older backup.  Bucket versioning stores multiple backups.
     # Therefore, just get item from bucket based on table name since that's what we name the files.
     filename = None
-    for d in contents['Contents']:
-        if d['Key'] == 'dump/{}.{}'.format(table, archive_type):
-            filename = d['Key']
+    for d in contents["Contents"]:
+        if d["Key"] == "dump/{}.{}".format(table, archive_type):
+            filename = d["Key"]
 
     if not filename:
         logging.exception("Unable to find file to restore from.  Confirm the name of the table you're restoring.")
         sys.exit(1)
 
-    output_file = '/tmp/' + os.path.basename(filename)
+    output_file = "/tmp/" + os.path.basename(filename)
     logging.info("Downloading file " + filename + " to " + output_file)
     s3.download_file(bucket, filename, output_file)
 
@@ -190,7 +190,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     if tarfile.is_tarfile(output_file):
         try:
             logging.info("Extracting tar file...")
-            with tarfile.open(name=output_file, mode='r:bz2') as a:
+            with tarfile.open(name=output_file, mode="r:bz2") as a:
                 a.extractall(path=".")
         except tarfile.ReadError as e:
             logging.exception("Error reading downloaded archive\n\n" + str(e))
@@ -203,7 +203,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     else:
         try:
             logging.info("Extracting zip file...")
-            with zipfile.ZipFile(output_file, 'r') as z:
+            with zipfile.ZipFile(output_file, "r") as z:
                 z.extractall(path=".")
         except zipfile.BadZipFile as e:
             logging.exception("Problem extracting zip file\n\n" + str(e))
@@ -220,10 +220,10 @@ def do_archive(archive_type, dump_path):
     archive_base = dump_path
 
     if archive_type.lower() == "tar":
-        archive = archive_base + '.tar.bz2'
+        archive = archive_base + ".tar.bz2"
         try:
             logging.info("Creating tar file " + archive + "...")
-            with tarfile.open(name=archive, mode='w:bz2') as a:
+            with tarfile.open(name=archive, mode="w:bz2") as a:
                 for root, dirs, files in os.walk(archive_base):
                     for file in files:
                         a.add(os.path.join(root, file))
@@ -239,8 +239,8 @@ def do_archive(archive_type, dump_path):
     elif archive_type.lower() == "zip":
         try:
             logging.info("Creating zip file...")
-            archive = archive_base + '.zip'
-            with zipfile.ZipFile(archive, 'w') as z:
+            archive = archive_base + ".zip"
+            with zipfile.ZipFile(archive, "w") as z:
                 for root, dirs, files in os.walk(archive_base):
                     for file in files:
                         z.write(os.path.join(root, file))
@@ -278,7 +278,7 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
         elif separator is None:
             if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
                 matching_tables.append(table_name)
-        elif separator == '':
+        elif separator == "":
             if table_name.startswith(re.sub(r"([A-Z])", r" \1",
                                             table_name_wildcard.split("*", 1)[0]).split()[0]):
                 matching_tables.append(table_name)
@@ -306,7 +306,7 @@ def get_restore_table_matches(table_name_wildcard, separator):
     for dir_name in dir_list:
         if table_name_wildcard == "*":
             matching_tables.append(dir_name)
-        elif separator == '':
+        elif separator == "":
 
             if dir_name.startswith(re.sub(r"([A-Z])", r" \1", table_name_wildcard.split("*", 1)[0])
                                    .split()[0]):
@@ -320,10 +320,10 @@ def get_restore_table_matches(table_name_wildcard, separator):
 def change_prefix(source_table_name, source_wildcard, destination_wildcard, separator):
     source_prefix = source_wildcard.split("*", 1)[0]
     destination_prefix = destination_wildcard.split("*", 1)[0]
-    if separator == '':
+    if separator == "":
         if re.sub(r"([A-Z])", r" \1", source_table_name).split()[0] == source_prefix:
             return destination_prefix + re.sub(r"([A-Z])", r" \1", source_table_name)\
-                .split(' ', 1)[1].replace(" ", "")
+                .split(" ", 1)[1].replace(" ", "")
     if source_table_name.split(separator, 1)[0] == source_prefix:
         return destination_prefix + separator + source_table_name.split(separator, 1)[1]
 
