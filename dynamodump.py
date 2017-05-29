@@ -823,18 +823,18 @@ def main():
                         "use 'tablename*' for wildcard prefix selection "
                         "(defaults to use '-' separator) [optional, defaults to source]")
     parser.add_argument("--prefixSeparator", help="Specify a different prefix separator, "
-			                     "e.g. '.' [optional]")
+                        "e.g. '.' [optional]")
     parser.add_argument("--noSeparator", action='store_true',
                         help="Overrides the use of a prefix separator for backup wildcard "
-			                     "searches [optional]")
+                        "searches [optional]")
     parser.add_argument("--readCapacity",
                         help="Change the temp read capacity of the DynamoDB table to backup "
-			                     "from [optional]")
+                        "from [optional]")
     parser.add_argument("-t", "--tag", help="Tag to use for identifying tables to back up.  "
                         "Mutually exclusive with srcTable.  Provided as KEY=VALUE")
     parser.add_argument("--writeCapacity",
                         help="Change the temp write capacity of the DynamoDB table to restore "
-			                     "to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
+                        "to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
     parser.add_argument("--schemaOnly", action="store_true", default=False,
                         help="Backup or restore the schema only. Do not backup/restore data. "
                         "Can be used with both backup and restore modes. Cannot be used with "
@@ -952,8 +952,7 @@ def main():
                             do_put_bucket_object(args.profile,
                                                  args.region,
                                                  args.bucket,
-                                                 archive_file
-                                                )
+                                                 archive_file)
                 else:
                     did_archive, archive_file = do_archive(args.archive, args.dumpPath)
 
@@ -1043,6 +1042,7 @@ def main():
             logging.info("Empty of table(s) " + args.srcTable + " completed!")
         else:
             do_empty(conn, args.srcTable)
+
 
 if __name__ == "__main__":
     main()
