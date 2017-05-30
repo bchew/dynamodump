@@ -17,6 +17,7 @@ import threading
 import Queue
 import datetime
 import errno
+import fnmatch
 import sys
 import time
 import re
@@ -43,9 +44,10 @@ DATA_DUMP = "dump"
 RESTORE_WRITE_CAPACITY = 25
 THREAD_START_DELAY = 1  # seconds
 CURRENT_WORKING_DIR = os.getcwd()
-DEFAULT_PREFIX_SEPARATOR = "-"
+DEFAULT_PREFIX_SEPARATOR = ","
 MAX_NUMBER_BACKUP_WORKERS = 25
 METADATA_URL = "http://169.254.169.254/latest/meta-data/"
+LOG_FORMAT = "%(levelname)-8s %(asctime)-15s %(message)s"
 
 
 def _get_aws_client(profile, region, service):
@@ -259,40 +261,27 @@ def do_archive(archive_type, dump_path):
                       "made it to this code path.  Skipping attempt at creating archive file")
         return False, None
 
-
 def get_table_name_matches(conn, table_name_wildcard, separator):
     """
     Find tables to backup
     """
-
     all_tables = []
     last_evaluated_table_name = None
 
     while True:
         table_list = conn.list_tables(exclusive_start_table_name=last_evaluated_table_name)
         all_tables.extend(table_list["TableNames"])
-
         try:
             last_evaluated_table_name = table_list["LastEvaluatedTableName"]
         except KeyError:
             break
-
-    matching_tables = []
-    for table_name in all_tables:
-        if table_name_wildcard == "*":
-            matching_tables.append(table_name)
-        elif separator is None:
-            if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
-                matching_tables.append(table_name)
-        elif separator == "":
-            if table_name.startswith(re.sub(r"([A-Z])", r" \1",
-                                            table_name_wildcard.split("*", 1)[0]).split()[0]):
-                matching_tables.append(table_name)
-        elif table_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
-            matching_tables.append(table_name)
-
+    if table_name_wildcard == "*":
+        matching_tables = all_tables
+    elif separator and table_name_wildcard.find(separator):
+        matching_tables = list(set([table_name for table_names in [fnmatch.filter(all_tables, table_name) for table_name in table_name_wildcard.split(separator)] for table_name in table_names]))
+    else:
+        matching_tablest = [table_name_wildcard] if table_name_wildcard in all_tables else []
     return matching_tables
-
 
 def get_restore_table_matches(table_name_wildcard, separator):
     """
@@ -526,88 +515,64 @@ def do_empty(dynamo, table_name):
         datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
-def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
-    """
-    Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
-    """
+def do_backup(conn, table_name, read_capacity, bucket=None):
+    logging.info("Starting backup for " + table_name + "..")
 
-    if srcTable:
-        table_name = srcTable
+    # trash data, re-create subdir
+    if os.path.exists(args.dumpPath + os.sep + table_name):
+        shutil.rmtree(args.dumpPath + os.sep + table_name)
+    mkdir_p(args.dumpPath + os.sep + table_name)
 
-    if tableQueue:
+    # get table schema
+    logging.info("Dumping table schema for " + table_name)
+    f = open(args.dumpPath + os.sep + table_name + os.sep + SCHEMA_FILE, "w+")
+    table_desc = conn.describe_table(table_name)
+    f.write(json.dumps(table_desc, indent=JSON_INDENT))
+    f.close()
+
+    if not args.schemaOnly:
+        original_read_capacity = table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
+        original_write_capacity = table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
+
+        # override table read capacity if specified
+        if read_capacity is not None and read_capacity != original_read_capacity:
+            update_provisioned_throughput(conn, table_name, read_capacity, original_write_capacity)
+
+        # get table data
+        logging.info("Dumping table items for " + table_name)
+        mkdir_p(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR)
+
+        i = 1
+        last_evaluated_key = None
+
         while True:
-            table_name = tableQueue.get()
-            if table_name is None:
-                break
+            scanned_table = conn.scan(table_name, exclusive_start_key=last_evaluated_key)
 
-            logging.info("Starting backup for " + table_name + "..")
-
-            # trash data, re-create subdir
-            if os.path.exists(args.dumpPath + os.sep + table_name):
-                shutil.rmtree(args.dumpPath + os.sep + table_name)
-            mkdir_p(args.dumpPath + os.sep + table_name)
-
-            # get table schema
-            logging.info("Dumping table schema for " + table_name)
-            f = open(args.dumpPath + os.sep + table_name + os.sep + SCHEMA_FILE, "w+")
-            table_desc = dynamo.describe_table(table_name)
-            f.write(json.dumps(table_desc, indent=JSON_INDENT))
+            f = open(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep + str(i).zfill(4) + ".json", "w+")
+            f.write(json.dumps(scanned_table, indent=JSON_INDENT))
             f.close()
 
-            if not args.schemaOnly:
-                original_read_capacity = \
-                    table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
-                original_write_capacity = \
-                    table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
+            i += 1
 
-                # override table read capacity if specified
-                if read_capacity is not None and read_capacity != original_read_capacity:
-                    update_provisioned_throughput(dynamo, table_name,
-                                                  read_capacity, original_write_capacity)
+            try:
+                last_evaluated_key = scanned_table["LastEvaluatedKey"]
+            except KeyError:
+                break
 
-                # get table data
-                logging.info("Dumping table items for " + table_name)
-                mkdir_p(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR)
+        # revert back to original table read capacity if specified
+        if read_capacity is not None and read_capacity != original_read_capacity:
+            update_provisioned_throughput(conn, table_name, original_read_capacity, original_write_capacity, False)
 
-                i = 1
-                last_evaluated_key = None
-
-                while True:
-                    try:
-                        scanned_table = dynamo.scan(table_name,
-                                                    exclusive_start_key=last_evaluated_key)
-                    except ProvisionedThroughputExceededException:
-                        logging.error("EXCEEDED THROUGHPUT ON TABLE " +
-                                      table_name + ".  BACKUP FOR IT IS USELESS.")
-                        tableQueue.task_done()
-
-                    f = open(
-                        args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
-                        str(i).zfill(4) + ".json", "w+"
-                    )
-                    f.write(json.dumps(scanned_table, indent=JSON_INDENT))
-                    f.close()
-
-                    i += 1
-
-                    try:
-                        last_evaluated_key = scanned_table["LastEvaluatedKey"]
-                    except KeyError:
-                        break
-
-                # revert back to original table read capacity if specified
-                if read_capacity is not None and read_capacity != original_read_capacity:
-                    update_provisioned_throughput(dynamo,
-                                                  table_name,
-                                                  original_read_capacity,
-                                                  original_write_capacity,
-                                                  False)
-
-                logging.info("Backup for " + table_name + " table completed. Time taken: " + str(
-                    datetime.datetime.now().replace(microsecond=0) - start_time))
-
-            tableQueue.task_done()
-
+        logging.info("Backup for " + table_name + " table completed. Time taken: " + str(
+            datetime.datetime.now().replace(microsecond=0) - start_time))
+    if bucket:
+        dump_path = args.dumpPath + os.sep + table_name
+        did_archive, archive_file = do_archive(args.archive, dump_path)
+        if did_archive:
+            do_put_bucket_object(args.profile,
+                                 args.region,
+                                 args.bucket,
+                                 archive_file)
 
 def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
     """
@@ -787,17 +752,16 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                      str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
-def main():
+
+# parse args
+def do_parse_args():
     """
-    Entrypoint to the script
+        Here we parse arguments and return the populated argparse object
     """
 
-    global args, sleep_interval, start_time
-
-    # parse args
     parser = argparse.ArgumentParser(description="Simple DynamoDB backup/restore/empty.")
     parser.add_argument("-a", "--archive", help="Type of compressed archive to create."
-                        "If unset, don't create archive", choices=["zip", "tar"])
+                        "If unset, don't create archive", choices=["zip", "tar"], default="zip")
     parser.add_argument("-b", "--bucket", help="S3 bucket in which to store or retrieve backups."
                         "[must already exist]")
     parser.add_argument("-m", "--mode", help="Operation to perform",
@@ -849,12 +813,19 @@ def main():
                         default=str(DATA_DUMP))
     parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL "
                         "[optional]")
-    args = parser.parse_args()
+    return(parser.parse_args())
 
+def main():
+    """
+        Entrypoint to the script
+    """
+    global args, sleep_interval, start_time
+    args = do_parse_args()
     # set log level
     log_level = LOG_LEVEL
     if args.log is not None:
         log_level = args.log.upper()
+    logging.basicConfig(level=getattr(logging, log_level), format=LOG_FORMAT)
     logging.basicConfig(level=getattr(logging, log_level))
 
     # Check to make sure that --dataOnly and --schemaOnly weren't simultaneously specified
@@ -894,70 +865,28 @@ def main():
     # do backup/restore
     start_time = datetime.datetime.now().replace(microsecond=0)
     if args.mode == "backup":
-        matching_backup_tables = []
-        if args.tag:
-            # Use Boto3 to find tags.  Boto3 provides a paginator that makes searching ta
-            matching_backup_tables = get_table_name_by_tag(args.profile, args.region, args.tag)
-        elif args.srcTable.find("*") != -1:
-            matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
-        elif args.srcTable:
-            matching_backup_tables.append(args.srcTable)
-
-        if len(matching_backup_tables) == 0:
-            logging.info("No matching tables found.  Nothing to do.")
-            sys.exit(0)
-        else:
-            logging.info("Found " + str(len(matching_backup_tables)) +
-                         " table(s) in DynamoDB host to backup: " +
-                         ", ".join(matching_backup_tables))
-
-        try:
-            if args.srcTable.find("*") == -1:
-                do_backup(conn, args.read_capacity, tableQueue=None)
-        except AttributeError:
-            # Didn't specify srcTable if we get here
-
-            q = Queue.Queue()
+        if not args.srcTable:
+            logging.info("No source table specified. Specify a table or list of tables to backup ....")
+            sys.exit(1)
+        matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
+        if not matching_backup_tables:
+            logging.info("No table found, exiting backup ....")
+            sys.exit(1)
+        elif len(matching_backup_tables) > 1:
+            logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB to backup: " + ", ".join(matching_backup_tables))
             threads = []
-
-            for i in range(MAX_NUMBER_BACKUP_WORKERS):
-                t = threading.Thread(target=do_backup, args=(conn, args.readCapacity),
-                                     kwargs={"tableQueue": q})
-                t.start()
+            for table_name in matching_backup_tables:
+                t = threading.Thread(target=do_backup, args=(conn, table_name, args.readCapacity,args.bucket,))
                 threads.append(t)
+                t.start()
                 time.sleep(THREAD_START_DELAY)
+            for thread in threads:
+                thread.join()
 
-            for table in matching_backup_tables:
-                q.put(table)
-
-            q.join()
-
-            for i in range(MAX_NUMBER_BACKUP_WORKERS):
-                q.put(None)
-            for t in threads:
-                t.join()
-
-            try:
-                logging.info("Backup of table(s) " + args.srcTable + " completed!")
-            except (NameError, TypeError):
-                logging.info("Backup of table(s) " +
-                             ", ".join(matching_backup_tables) + " completed!")
-
-            if args.archive:
-                if args.tag:
-                    for table in matching_backup_tables:
-                        dump_path = args.dumpPath + os.sep + table
-                        did_archive, archive_file = do_archive(args.archive, dump_path)
-                        if args.bucket and did_archive:
-                            do_put_bucket_object(args.profile,
-                                                 args.region,
-                                                 args.bucket,
-                                                 archive_file)
-                else:
-                    did_archive, archive_file = do_archive(args.archive, args.dumpPath)
-
-                if args.bucket and did_archive:
-                    do_put_bucket_object(args.profile, args.region, args.bucket, archive_file)
+            logging.info("Backup of table(s) " + args.srcTable + " completed!")
+        else:
+            logging.info("Found " + args.srcTable + " table in DynamoDB to backup")
+            do_backup(conn, args.srcTable, args.readCapacity, args.bucket)
 
     elif args.mode == "restore":
         if args.destTable is not None:
