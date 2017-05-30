@@ -14,7 +14,6 @@ import logging
 import os
 import shutil
 import threading
-#import Queue
 import datetime
 import errno
 import fnmatch
@@ -25,7 +24,6 @@ import zipfile
 import tarfile
 import urllib2
 import boto.dynamodb2.layer1
-#from boto.dynamodb2.exceptions import ProvisionedThroughputExceededException
 import botocore
 import boto3
 
@@ -261,6 +259,7 @@ def do_archive(archive_type, dump_path):
                       "made it to this code path.  Skipping attempt at creating archive file")
         return False, None
 
+
 def get_table_name_matches(conn, table_name_wildcard, separator):
     """
     Find tables to backup
@@ -284,6 +283,7 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
         matching_tables = [table_name_wildcard] if table_name_wildcard in all_tables else []
 
     return matching_tables
+
 
 def get_restore_table_matches(table_name_wildcard, separator):
     """
@@ -576,6 +576,7 @@ def do_backup(conn, table_name, read_capacity, bucket=None):
                                  args.bucket,
                                  archive_file)
 
+
 def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
     """
     Restore table
@@ -753,6 +754,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         logging.info("Empty schema of " + source_table + " table created. Time taken: " +
                      str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
+
 # parse args
 def do_parse_args():
     """
@@ -814,6 +816,7 @@ def do_parse_args():
     parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL "
                         "[optional]")
     return(parser.parse_args())
+
 
 def main():
     """
