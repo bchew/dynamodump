@@ -817,7 +817,7 @@ def do_parse_args():
 
 def main():
     """
-        Entrypoint to the script
+    Entrypoint to the script
     """
     global args, sleep_interval, start_time
     args = do_parse_args()
@@ -903,7 +903,7 @@ def main():
             delete_str = ": " if args.dataOnly else " to be deleted: "
             logging.info(
                 "Found " + str(len(matching_destination_tables)) +
-                " table(s) in DynamoDB host" + delete_str +
+                " table(s) in DynamoDB" + delete_str +
                 ", ".join(matching_destination_tables))
 
             threads = []
@@ -955,7 +955,7 @@ def main():
         if args.srcTable.find("*") != -1:
             matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
             logging.info("Found " + str(len(matching_backup_tables)) +
-                         " table(s) in DynamoDB host to empty: " +
+                         " table(s) in DynamoDB to empty: " +
                          ", ".join(matching_backup_tables))
 
             threads = []
