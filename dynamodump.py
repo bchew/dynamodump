@@ -14,7 +14,7 @@ import logging
 import os
 import shutil
 import threading
-import Queue
+#import Queue
 import datetime
 import errno
 import fnmatch
@@ -25,7 +25,7 @@ import zipfile
 import tarfile
 import urllib2
 import boto.dynamodb2.layer1
-from boto.dynamodb2.exceptions import ProvisionedThroughputExceededException
+#from boto.dynamodb2.exceptions import ProvisionedThroughputExceededException
 import botocore
 import boto3
 
@@ -265,6 +265,7 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
     """
     Find tables to backup
     """
+
     all_tables = []
     last_evaluated_table_name = None
 
@@ -280,7 +281,8 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
     elif separator and table_name_wildcard.find(separator):
         matching_tables = list(set([table_name for table_names in [fnmatch.filter(all_tables, table_name) for table_name in table_name_wildcard.split(separator)] for table_name in table_names]))
     else:
-        matching_tablest = [table_name_wildcard] if table_name_wildcard in all_tables else []
+        matching_tables = [table_name_wildcard] if table_name_wildcard in all_tables else []
+
     return matching_tables
 
 def get_restore_table_matches(table_name_wildcard, separator):
@@ -751,8 +753,6 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         logging.info("Empty schema of " + source_table + " table created. Time taken: " +
                      str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
-
-
 # parse args
 def do_parse_args():
     """
@@ -876,7 +876,7 @@ def main():
             logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB to backup: " + ", ".join(matching_backup_tables))
             threads = []
             for table_name in matching_backup_tables:
-                t = threading.Thread(target=do_backup, args=(conn, table_name, args.readCapacity,args.bucket,))
+                t = threading.Thread(target=do_backup, args=(conn, table_name, args.readCapacity, args.bucket,))
                 threads.append(t)
                 t.start()
                 time.sleep(THREAD_START_DELAY)
