@@ -26,11 +26,12 @@ Simple DynamoDB backup/restore/empty.
 optional arguments:
   -h, --help            show this help message and exit
   -a {zip,tar}, --archive {zip,tar}
-                        Type of compressed archive to create.If unset, don't
-                        create archive
+                        Type of compressed archive to create.If unset,
+                        (defaults to use 'zip') [optional], automatically use
+			when s3 backup is specified
   -b BUCKET, --bucket BUCKET
                         S3 bucket in which to store or retrieve backups.[must
-                        already exist]
+                        already exist]0
   -m MODE, --mode MODE  'backup' or 'restore' or 'empty'
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Can use
@@ -56,8 +57,8 @@ optional arguments:
                         (defaults to use '-' separator) [optional, defaults to
                         source]
   --prefixSeparator PREFIXSEPARATOR
-                        Specify a different prefix separator, e.g. '.'
-                        [optional]
+                        Specify a separator in case of processing a list of tables.
+                        (defaults to use ',') [optional] [optional]
   --noSeparator         Overrides the use of a prefix separator for backup
                         wildcard searches [optional]
   --readCapacity READCAPACITY
@@ -95,18 +96,26 @@ python dynamodump.py -m backup -r us-west-1 -s testTable
 
 python dynamodump.py -m restore -r us-west-1 -s testTable
 ```
-Multiple table backup/restore (assumes prefix of 'production-' of table names, use --prefixSeparator to specify a
+Multiple table backup/restore (matching tables whose name begin by 'production', or processing table1 and table2 use --prefixSeparator to specify a
 different separator):
 ```
 python dynamodump.py -m backup -r us-west-1 -s production*
+python dynamodump.py -m backup -r us-west-1 -s table1,table2
 
 python dynamodump.py -m restore -r us-west-1 -s production*
+python dynamodump.py -m restore -r us-west-1 -s table1,table2
 ```
-The above, but between different environments (e.g. production-* tables to development-* tables):
+The above, but between different environments (e.g. production table to development table):
 ```
-python dynamodump.py -m backup -r us-west-1 -s production*
+python dynamodump.py -m backup -r us-west-1 -s staging -d production
 
-python dynamodump.py -m restore -r us-west-1 -s production* -d development*
+python dynamodump.py -m restore -r us-west-1 -s production -d development
+```
+Backup or restore all tables:
+```
+python dynamodump.py -m backup -r us-west-1 -s *
+
+python dynamodump.py -m restore -r us-west-1 -s * 
 ```
 Backup all tables and restore only data (will not delete and recreate schema):
 ```
@@ -148,3 +157,7 @@ python dynamodump.py -m backup -r local -s testTable --host localhost --port 456
 python dynamodump.py -m restore -r local -s testTable --host localhost --port 4567 --accessKey a --secretKey a
 ```
 Multiple table backup/restore as stated in the AWS examples are also available for local.
+
+Notes :
+-------
+You can change the defaut dump path when deploying the code, We think **dynamodump** better fits dump path name. But it's really just a matter of taste :)

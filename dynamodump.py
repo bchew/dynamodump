@@ -38,7 +38,8 @@ DATA_DIR = "data"
 MAX_RETRY = 6
 LOCAL_REGION = "local"
 LOG_LEVEL = "INFO"
-DATA_DUMP = "dump"
+DATA_DUMP = "dynamodump"
+OUTPUT_DIR = "/tmp/dynamorestore/"
 RESTORE_WRITE_CAPACITY = 25
 THREAD_START_DELAY = 1  # seconds
 CURRENT_WORKING_DIR = os.getcwd()
@@ -137,8 +138,17 @@ def do_put_bucket_object(profile, region, bucket, bucket_object):
         logging.exception("Failed to put file to S3 bucket\n\n" + str(e))
         sys.exit(1)
 
+def _do_splitext(s):
+    """
+    remove extension from s3 file names
+    """
+    base_name=os.path.splitext(s)
+    if base_name[-1] == ".bz2":
+        base_name=os.splitext(base_name[0])
 
-def do_get_s3_archive(profile, region, bucket, table, archive):
+    return base_name[0]
+
+def do_get_s3_archive(profile, region, bucket, table, archive, separator):
     """
     Fetch latest file named filename from S3
 
@@ -174,42 +184,75 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
 
     # Script will always overwrite older backup.  Bucket versioning stores multiple backups.
     # Therefore, just get item from bucket based on table name since that's what we name the files.
-    filename = None
-    for d in contents["Contents"]:
-        if d["Key"] == "dump/{}.{}".format(table, archive_type):
-            filename = d["Key"]
-
-    if not filename:
+    content_files = [_do_splitext(os.path.basename(file_path)) for file_path in [d["Key"] for d in contents]]
+    if table == "*":
+        matching_tables = content_files
+    elif separator and table.find(separator):
+        matching_tables = list(set([table_name for table_names in [fnmatch.filter(content_files, table_name) for table_name in table.split(separator)] for table_name in table_names]))
+    else:
+        matching_tables = [table] if table in content_files else []
+    if not matching_tables:
         logging.exception("Unable to find file to restore from.  "
                           "Confirm the name of the table you're restoring.")
         sys.exit(1)
+    elif len(matching_tables) > 1:
+        for d in contents["Contents"]:
+            if _do_splitext(os.path.basename(d["Key"])) in matching_tables:
+                filename = d["Key"]
+                output_file = OUTPUT_DIR  + os.path.basename(filename)
+                logging.info("Downloading file " + filename + " to " + output_file)
+                s3.download_file(bucket, filename, output_file)
+                # Extract archive based on suffix
+                if tarfile.is_tarfile(output_file):
+                    try:
+                        logging.info("Extracting tar file...")
+                        with tarfile.open(name=output_file, mode="r:bz2") as a:
+                            a.extractall(path=".")
+                    except tarfile.ReadError as e:
+                        logging.exception("Error reading downloaded archive\n\n" + str(e))
+                    except tarfile.ExtractError as e:
+                    # ExtractError is raised for non-fatal errors on extract method
+                        logging.error("Error during extraction: " + str(e))
 
-    output_file = "/tmp/" + os.path.basename(filename)
-    logging.info("Downloading file " + filename + " to " + output_file)
-    s3.download_file(bucket, filename, output_file)
-
-    # Extract archive based on suffix
-    if tarfile.is_tarfile(output_file):
-        try:
-            logging.info("Extracting tar file...")
-            with tarfile.open(name=output_file, mode="r:bz2") as a:
-                a.extractall(path=".")
-        except tarfile.ReadError as e:
-            logging.exception("Error reading downloaded archive\n\n" + str(e))
-            sys.exit(1)
-        except tarfile.ExtractError as e:
-            # ExtractError is raised for non-fatal errors on extract method
-            logging.error("Error during extraction: " + str(e))
-
-    # Assuming zip file here since we're only supporting tar and zip at this time
+                # Assuming zip file here since we're only supporting tar and zip at this time
+                else:
+                    try:
+                        logging.info("Extracting zip file...")
+                        with zipfile.ZipFile(output_file, "r") as z:
+                            z.extractall(path=".")
+                    except zipfile.BadZipFile as e:
+                        logging.exception("Problem extracting zip file\n\n" + str(e))
     else:
-        try:
-            logging.info("Extracting zip file...")
-            with zipfile.ZipFile(output_file, "r") as z:
-                z.extractall(path=".")
-        except zipfile.BadZipFile as e:
-            logging.exception("Problem extracting zip file\n\n" + str(e))
-            sys.exit(1)
+        for d in contents["Contents"]:
+            if _do_splitext(os.path.basename(d["Key"])) == matching_tables[0]:
+                filename = d["Key"]
+                output_file = OUTPUT_DIR  + os.path.basename(filename)
+                logging.info("Downloading file " + filename + " to " + output_file)
+                s3.download_file(bucket, filename, output_file)
+                # Extract archive based on suffix
+                if tarfile.is_tarfile(output_file):
+                    try:
+                        logging.info("Extracting tar file...")
+                        with tarfile.open(name=output_file, mode="r:bz2") as a:
+                            a.extractall(path=".")
+                        break
+                    except tarfile.ReadError as e:
+                        logging.exception("Error reading downloaded archive\n\n" + str(e))
+                        sys.exit(1)
+                    except tarfile.ExtractError as e:
+                    # ExtractError is raised for non-fatal errors on extract method
+                        logging.error("Error during extraction: " + str(e))
+
+                # Assuming zip file here since we're only supporting tar and zip at this time
+                else:
+                    try:
+                        logging.info("Extracting zip file...")
+                        with zipfile.ZipFile(output_file, "r") as z:
+                            z.extractall(path=".")
+                        break
+                    except zipfile.BadZipFile as e:
+                        logging.exception("Problem extracting zip file\n\n" + str(e))
+                        break
 
 
 def do_archive(archive_type, dump_path):
@@ -290,30 +333,29 @@ def get_restore_table_matches(table_name_wildcard, separator):
     Find tables to restore
     """
 
+    # If backups are in S3 download and extract the backup to use during restoration
+    if args.bucket:
+        do_get_s3_archive(args.profile, args.region, args.bucket, args.srcTable, args.archive, separator)
     matching_tables = []
     try:
-        dir_list = os.listdir("./" + args.dumpPath)
+        dir_list = [dir_name for dir_name in os.listdir(args.dumpPath) if os.path.isdir(args.dumpPath + "/" + dir_name)]
     except OSError:
         logging.info("Cannot find \"./%s\", Now trying current working directory.."
                      % args.dumpPath)
         dump_data_path = CURRENT_WORKING_DIR
         try:
-            dir_list = os.listdir(dump_data_path)
+            dir_list = [dir_name for dir_name in os.listdir(dump_data_path) if os.path.isdir(dump_data_path + "/" + dir_name)]
         except OSError:
             logging.info("Cannot find \"%s\" directory containing dump files!"
                          % dump_data_path)
             sys.exit(1)
 
-    for dir_name in dir_list:
-        if table_name_wildcard == "*":
-            matching_tables.append(dir_name)
-        elif separator == "":
-
-            if dir_name.startswith(re.sub(r"([A-Z])", r" \1", table_name_wildcard.split("*", 1)[0])
-                                   .split()[0]):
-                matching_tables.append(dir_name)
-        elif dir_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
-            matching_tables.append(dir_name)
+    if table_name_wildcard == "*":
+        matching_tables = dir_list
+    elif separator and table_name_wildcard.find(separator):
+        matching_tables = list(set([table_name for table_names in [fnmatch.filter(dir_list, table_name) for table_name in table_name_wildcard.split(separator)] for table_name in table_names]))
+    else:
+        matching_tables = [table_name_wildcard] if table_name_wildcard in dir_list else []
 
     return matching_tables
 
@@ -422,7 +464,7 @@ def batch_write(conn, sleep_interval, table_name, put_requests):
             break
 
 
-def wait_for_active_table(conn, table_name, verb):
+def wait_for_active_table(conn, table_name, verb=""):
     """
     Wait for table to be indesired state
     """
@@ -897,12 +939,14 @@ def main():
         else:
             dest_table = args.srcTable
 
-        # If backups are in S3 download and extract the backup to use during restoration
-        if args.bucket:
-            do_get_s3_archive(args.profile, args.region, args.bucket, args.srcTable, args.archive)
-
-        if dest_table.find("*") != -1:
-            matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
+        if not args.srcTable:
+            logging.info("No source table specified. Specify a table or list of tables to restore ....")
+            sys.exit(1)
+        matching_restore_tables = get_restore_table_matches(args.srcTable, prefix_separator)
+        matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
+        if not matching_destination_tables:
+            logging.info("No table destination table found for delettion, Goin to restoe ....")
+        elif len(matching_destination_tables) > 1:
             delete_str = ": " if args.dataOnly else " to be deleted: "
             logging.info(
                 "Found " + str(len(matching_destination_tables)) +
@@ -918,8 +962,13 @@ def main():
 
             for thread in threads:
                 thread.join()
+        else:
+            delete_table(conn, sleep_interval, matching_destination_tables[0])
 
-            matching_restore_tables = get_restore_table_matches(args.srcTable, prefix_separator)
+        if not matching_restore_tables:
+            logging.info("No table found for restore, exiting restore ....")
+            sys.exit(1)
+        elif len(matching_restore_tables) > 1:
             logging.info(
                 "Found " + str(len(matching_restore_tables)) +
                 " table(s) in " + args.dumpPath + " to restore: " + ", ".join(
@@ -927,21 +976,12 @@ def main():
 
             threads = []
             for source_table in matching_restore_tables:
-                if args.srcTable == "*":
-                    t = threading.Thread(target=do_restore,
-                                         args=(conn,
-                                               sleep_interval,
-                                               source_table,
-                                               source_table,
-                                               args.writeCapacity))
-                else:
-                    t = threading.Thread(target=do_restore,
-                                         args=(conn, sleep_interval, source_table,
-                                               change_prefix(source_table,
-                                                             args.srcTable,
-                                                             dest_table,
-                                                             prefix_separator),
-                                               args.writeCapacity))
+                t = threading.Thread(target=do_restore,
+                                     args=(conn,
+                                           sleep_interval,
+                                           source_table,
+                                           source_table,
+                                           args.writeCapacity))
                 threads.append(t)
                 t.start()
                 time.sleep(THREAD_START_DELAY)
@@ -954,6 +994,8 @@ def main():
         else:
             delete_table(conn, sleep_interval, dest_table)
             do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
+            logging.info("Restore of table(s) " + args.srcTable + " to " +
+                         dest_table + " completed!")
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
             matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
