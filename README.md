@@ -161,3 +161,8 @@ Multiple table backup/restore as stated in the AWS examples are also available f
 Notes :
 -------
 You can change the defaut dump path when deploying the code, We think **dynamodump** better fits dump path name. But it's really just a matter of taste :)
+
+Before run the program you should make sure that directory assigned to the variable **OUTPUT_DIR** exists. It's the path use for file archives extraction when doing a restore from s3. The value in the program is **/tmp/dynamorestore/**:
+```
+mkdir -p /tmp/dynamorestore/
+```

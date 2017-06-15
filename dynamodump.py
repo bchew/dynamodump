@@ -177,6 +177,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive, separator):
     try:
         contents = s3.list_objects_v2(
             Bucket=bucket,
+            Prefix=args.dumpPath
         )
     except botocore.exceptions.ClientError as e:
         logging.exception("Issue listing contents of bucket " + bucket + "\n\n" + str(e))
@@ -184,13 +185,14 @@ def do_get_s3_archive(profile, region, bucket, table, archive, separator):
 
     # Script will always overwrite older backup.  Bucket versioning stores multiple backups.
     # Therefore, just get item from bucket based on table name since that's what we name the files.
-    content_files = [_do_splitext(os.path.basename(file_path)) for file_path in [d["Key"] for d in contents]]
+    content_files = [_do_splitext(os.path.basename(file_path)) for file_path in [d["Key"] for d in contents["Contents"]]]
     if table == "*":
         matching_tables = content_files
-    elif separator and table.find(separator):
+    elif separator and table.find(separator) != -1:
         matching_tables = list(set([table_name for table_names in [fnmatch.filter(content_files, table_name) for table_name in table.split(separator)] for table_name in table_names]))
     else:
-        matching_tables = [table] if table in content_files else []
+        matching_tables = list(set(fnmatch.filter(content_files, table)))
+
     if not matching_tables:
         logging.exception("Unable to find file to restore from.  "
                           "Confirm the name of the table you're restoring.")
@@ -323,7 +325,7 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
     elif separator and table_name_wildcard.find(separator):
         matching_tables = list(set([table_name for table_names in [fnmatch.filter(all_tables, table_name) for table_name in table_name_wildcard.split(separator)] for table_name in table_names]))
     else:
-        matching_tables = [table_name_wildcard] if table_name_wildcard in all_tables else []
+        matching_tables = list(set(fnmatch.filter(all_tables, table_name_wildcard)))
 
     return matching_tables
 
@@ -928,22 +930,25 @@ def main():
             for thread in threads:
                 thread.join()
 
-            logging.info("Backup of table(s) " + args.srcTable + " completed!")
+            logging.info("Backup of tables " + ", ".join(matching_backup_tables) + " completed!")
         else:
-            logging.info("Found " + args.srcTable + " table in DynamoDB to backup")
+            logging.info("Found " + matching_backup_tables[0] + " table in DynamoDB to backup")
             do_backup(conn, args.srcTable, args.readCapacity, args.bucket)
 
     elif args.mode == "restore":
-        if args.destTable is not None:
-            dest_table = args.destTable
-        else:
-            dest_table = args.srcTable
+        if not args.destTable:
+            args.destTable = args.srcTable
 
         if not args.srcTable:
             logging.info("No source table specified. Specify a table or list of tables to restore ....")
             sys.exit(1)
+
         matching_restore_tables = get_restore_table_matches(args.srcTable, prefix_separator)
-        matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
+        if len(matching_restore_tables) > 1:
+            matching_destination_tables = get_table_name_matches(conn, prefix_separator.join(matching_restore_tables), prefix_separator)
+        elif len(matching_restore_tables) == 1:
+            matching_destination_tables = get_table_name_matches(conn, args.destTable, prefix_separator)
+
         if not matching_destination_tables:
             logging.info("No table destination table found for delettion, Goin to restoe ....")
         elif len(matching_destination_tables) > 1:
@@ -989,22 +994,25 @@ def main():
             for thread in threads:
                 thread.join()
 
-            logging.info("Restore of table(s) " + args.srcTable + " to " +
-                         dest_table + " completed!")
+            logging.info("Restore of tables " + ", ".join(matching_restore_tables) + " completed!")
         else:
-            delete_table(conn, sleep_interval, dest_table)
-            do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
-            logging.info("Restore of table(s) " + args.srcTable + " to " +
-                         dest_table + " completed!")
+            delete_table(conn, sleep_interval, args.destTable)
+            do_restore(conn, sleep_interval, args.srcTable, args.destTable, args.writeCapacity)
+            logging.info("Restore of table " + args.srcTable + " to " +
+                         args.destTable + " completed!")
+
     elif args.mode == "empty":
-        if args.srcTable.find("*") != -1:
-            matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
-            logging.info("Found " + str(len(matching_backup_tables)) +
+        matching_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
+        if not matching_tables:
+            logging.info("No table found, exiting backup ....")
+            sys.exit(1)
+        elif len(matching_tables) > 1:
+            logging.info("Found " + str(len(matching_tables)) +
                          " table(s) in DynamoDB to empty: " +
-                         ", ".join(matching_backup_tables))
+                         ", ".join(matching_tables))
 
             threads = []
-            for table in matching_backup_tables:
+            for table in matching_tables:
                 t = threading.Thread(target=do_empty, args=(conn, table))
                 threads.append(t)
                 t.start()
@@ -1013,9 +1021,10 @@ def main():
             for thread in threads:
                 thread.join()
 
-            logging.info("Empty of table(s) " + args.srcTable + " completed!")
+            logging.info("Empty of table(s) " + ", ".join(matching_tables) + " completed!")
         else:
-            do_empty(conn, args.srcTable)
+            logging.info("Found " + matching_tables[0] + " table in DynamoDB to empty")
+            do_empty(conn, matching_tables[0])
 
 
 if __name__ == "__main__":
