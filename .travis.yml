@@ -10,7 +10,7 @@ install:
 script:
   - flake8 --ignore=E501 --exclude=node_modules
   - dynalite --port 4567 &
-  - mkdir dump && cp -a test/testTable dump
+  - mkdir dynamodump && cp -a test/testTable dynamodump
   - python dynamodump.py -m restore -r local -s testTable -d testRestoredTable --host localhost --port 4567 --accessKey a --secretKey a
   - python dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 4567 --accessKey a --secretKey a
   - python test/test.py
