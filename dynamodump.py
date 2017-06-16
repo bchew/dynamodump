@@ -138,15 +138,18 @@ def do_put_bucket_object(profile, region, bucket, bucket_object):
         logging.exception("Failed to put file to S3 bucket\n\n" + str(e))
         sys.exit(1)
 
+
 def _do_splitext(s):
     """
     remove extension from s3 file names
     """
+
     base_name=os.path.splitext(s)
     if base_name[-1] == ".bz2":
         base_name=os.splitext(base_name[0])
 
     return base_name[0]
+
 
 def do_get_s3_archive(profile, region, bucket, table, archive, separator):
     """
@@ -157,12 +160,6 @@ def do_get_s3_archive(profile, region, bucket, table, archive, separator):
     """
 
     s3 = _get_aws_client(profile, region, "s3")
-
-    if archive:
-        if archive == "tar":
-            archive_type = "tar.bz2"
-        else:
-            archive_type = "zip"
 
     # Make sure bucket exists before continuing
     try:
@@ -201,7 +198,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive, separator):
         for d in contents["Contents"]:
             if _do_splitext(os.path.basename(d["Key"])) in matching_tables:
                 filename = d["Key"]
-                output_file = OUTPUT_DIR  + os.path.basename(filename)
+                output_file = OUTPUT_DIR + os.path.basename(filename)
                 logging.info("Downloading file " + filename + " to " + output_file)
                 s3.download_file(bucket, filename, output_file)
                 # Extract archive based on suffix
@@ -213,7 +210,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive, separator):
                     except tarfile.ReadError as e:
                         logging.exception("Error reading downloaded archive\n\n" + str(e))
                     except tarfile.ExtractError as e:
-                    # ExtractError is raised for non-fatal errors on extract method
+                        # ExtractError is raised for non-fatal errors on extract method
                         logging.error("Error during extraction: " + str(e))
 
                 # Assuming zip file here since we're only supporting tar and zip at this time
@@ -228,7 +225,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive, separator):
         for d in contents["Contents"]:
             if _do_splitext(os.path.basename(d["Key"])) == matching_tables[0]:
                 filename = d["Key"]
-                output_file = OUTPUT_DIR  + os.path.basename(filename)
+                output_file = OUTPUT_DIR + os.path.basename(filename)
                 logging.info("Downloading file " + filename + " to " + output_file)
                 s3.download_file(bucket, filename, output_file)
                 # Extract archive based on suffix
@@ -242,7 +239,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive, separator):
                         logging.exception("Error reading downloaded archive\n\n" + str(e))
                         sys.exit(1)
                     except tarfile.ExtractError as e:
-                    # ExtractError is raised for non-fatal errors on extract method
+                        # ExtractError is raised for non-fatal errors on extract method
                         logging.error("Error during extraction: " + str(e))
 
                 # Assuming zip file here since we're only supporting tar and zip at this time
