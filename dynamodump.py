@@ -144,9 +144,9 @@ def _do_splitext(s):
     remove extension from s3 file names
     """
 
-    base_name=os.path.splitext(s)
+    base_name = os.path.splitext(s)
     if base_name[-1] == ".bz2":
-        base_name=os.splitext(base_name[0])
+        base_name = os.splitext(base_name[0])
 
     return base_name[0]
 
