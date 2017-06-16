@@ -3,7 +3,7 @@ import json
 import unittest
 
 TEST_DATA_PATH = "test/testTable"
-DUMP_DATA_PATH = "dump/testRestoredTable"
+DUMP_DATA_PATH = "dynamodump/testRestoredTable"
 SCHEMA_FILE = "schema.json"
 DATA_FILE = "0001.json"
 
