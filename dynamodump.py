@@ -25,7 +25,6 @@ import tarfile
 import urllib2
 import botocore
 import boto3
-from dateutil.tz import tzlocal
 
 
 JSON_INDENT = 2
@@ -74,24 +73,24 @@ def _get_aws_client(service, endpoint=None):
                 logging.error("You should specify an asumed role name for the provided asumed account id")
                 sys.exit(1)
             else:
-               sts_client = boto3.client('sts')
-               assumedRoleObject = sts_client.assume_role(
-                  RoleArn="arn:aws:iam::%s:role/%s" %(args.assumedAccountId, args.assumedRoleName),
-                  RoleSessionName="AssumeRoleDynamoBAckup"
+                sts_client = boto3.client('sts')
+                assumedRoleObject = sts_client.assume_role(
+                    RoleArn = "arn:aws:iam::%s:role/%s" %(args.assumedAccountId, args.assumedRoleName),
+                    RoleSessionName = "AssumeRoleDynamoBAckup"
                )
-               credentials = assumedRoleObject['Credentials']
+                credentials = assumedRoleObject['Credentials']
         else:
             credentials = {
-               'AccessKeyId':args.accessKey,
-               'SecretAccessKey':args.secretKey,
-               'SessionToken':args.sessionToken
+                'AccessKeyId': args.accessKey,
+                'SecretAccessKey': args.secretKey,
+                'SessionToken': args.sessionToken
             }
 
         client = boto3.client(
             service,
-            aws_access_key_id = credentials['AccessKeyId'],
-            aws_secret_access_key = credentials['SecretAccessKey'],
-            aws_session_token = credentials['SessionToken'],
+            aws_access_key_id=credentials['AccessKeyId'],
+            aws_secret_access_key=credentials['SecretAccessKey'],
+            aws_session_token=credentials['SessionToken'],
             endpoint_url=endpoint,
             region_name=aws_region
         )
@@ -405,7 +404,7 @@ def delete_table(dynamo, sleep_interval, table_name):
             try:
                 dynamo.delete_table(TableName=table_name)
             except botocore.exceptions.ClientError as e:
-                if e.response['Error']['Code']== "ResourceNotFoundException":
+                if e.response['Error']['Code'] == "ResourceNotFoundException":
                     table_exists = False
                     logging.info(table_name + " not found for delation!")
                     break
@@ -542,11 +541,11 @@ def do_empty(dynamo, table_name):
     table_desc = table_data["Table"]
     original_read_capacity = table_desc["ProvisionedThroughput"]["ReadCapacityUnits"]
     original_write_capacity = table_desc["ProvisionedThroughput"]["WriteCapacityUnits"]
-    table_args ={
+    table_args = {
         "AttributeDefinitions": table_desc["AttributeDefinitions"],
         "TableName": table_name,
         "KeySchema": table_desc["KeySchema"],
-        "ProvisionedThroughput":{
+        "ProvisionedThroughput": {
             "ReadCapacityUnits": int(original_read_capacity),
             "WriteCapacityUnits": int(original_write_capacity)
         },
@@ -600,11 +599,9 @@ def do_backup(dynamo, table_name, read_capacity, bucket=None):
         i = 0
         for index in table_desc['Table']['GlobalSecondaryIndexes']:
             if isinstance(index.get('ProvisionedThroughput', {}).get('LastDecreaseDateTime', None), datetime.datetime):
-                table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['LastDecreaseDateTime'] = \
-                        time.mktinme(table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['LastDecreaseDateTime'].timetuple())
+                table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['LastDecreaseDateTime'] = time.mktinme(table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['LastDecreaseDateTime'].timetuple())
             if isinstance(index.get('ProvisionedThroughput', {}).get('LastIncreaseDateTime', None), datetime.datetime):
-                table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['LastIncreaseDateTime'] = \
-                        time.mktinme(table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['"LastIncreaseDateTime'].timetuple())
+                table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['LastIncreaseDateTime'] = time.mktinme(table_desc['Table']['GlobalSecondaryIndexes'][i]['ProvisionedThroughput']['"LastIncreaseDateTime'].timetuple())
             i += 1
     if isinstance(table_desc.get('Table', {}).get('ProvisionedThroughput', {}).get('LastDecreaseDateTime', None), datetime.datetime):
         table_desc['Table']['ProvisionedThroughput']['LastDecreaseDateTime'] = time.mktime(table_desc['Table']['ProvisionedThroughput']['LastDecreaseDateTime'].timetuple())
@@ -676,7 +673,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
     original_read_capacity = table["ProvisionedThroughput"]["ReadCapacityUnits"]
     original_write_capacity = table["ProvisionedThroughput"]["WriteCapacityUnits"]
     # table parameters for restore
-    table_args ={
+    table_args = {
         "AttributeDefinitions": table["AttributeDefinitions"],
         "TableName": destination_table,
         "KeySchema": table["KeySchema"],
@@ -704,7 +701,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                 gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = int(write_capacity)
 
     # temp provisioned throughput for restore
-    table_args["ProvisionedThroughput"] ={
+    table_args["ProvisionedThroughput"] = {
         "ReadCapacityUnits": int(original_read_capacity),
         "WriteCapacityUnits": int(write_capacity)
     }
@@ -915,7 +912,7 @@ def main():
 
     # instantiate connection
     if args.region == LOCAL_REGION:
-        dynamo = _get_aws_client("dynamodb", endpoint="http://%s:%s" %(args.host, args.port))
+        dynamo = _get_aws_client("dynamodb", endpoint = "http://%s:%s" %(args.host, args.port))
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
         dynamo = _get_aws_client("dynamodb")
