@@ -75,9 +75,9 @@ def _get_aws_client(service, endpoint=None):
             else:
                 sts_client = boto3.client('sts')
                 assumedRoleObject = sts_client.assume_role(
-                    RoleArn = "arn:aws:iam::%s:role/%s" %(args.assumedAccountId, args.assumedRoleName),
-                    RoleSessionName = "AssumeRoleDynamoBAckup"
-               )
+                    RoleArn="arn:aws:iam::%s:role/%s" %(args.assumedAccountId, args.assumedRoleName),
+                    RoleSessionName="AssumeRoleDynamoBAckup"
+                )
                 credentials = assumedRoleObject['Credentials']
         else:
             credentials = {
@@ -912,7 +912,7 @@ def main():
 
     # instantiate connection
     if args.region == LOCAL_REGION:
-        dynamo = _get_aws_client("dynamodb", endpoint = "http://%s:%s" %(args.host, args.port))
+        dynamo = _get_aws_client("dynamodb", endpoint="http://%s:%s" %(args.host, args.port))
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
         dynamo = _get_aws_client("dynamodb")
