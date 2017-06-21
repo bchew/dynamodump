@@ -605,6 +605,8 @@ def do_backup(dynamo, table_name, read_capacity, bucket=None):
             i += 1
     if isinstance(table_desc.get('Table', {}).get('ProvisionedThroughput', {}).get('LastDecreaseDateTime', None), datetime.datetime):
         table_desc['Table']['ProvisionedThroughput']['LastDecreaseDateTime'] = time.mktime(table_desc['Table']['ProvisionedThroughput']['LastDecreaseDateTime'].timetuple())
+    if isinstance(table_desc.get('Table', {}).get('ProvisionedThroughput', {}).get('LastIncreaseDateTime', None), datetime.datetime):
+        table_desc['Table']['ProvisionedThroughput']['LastIncreaseDateTime'] = time.mktime(table_desc['Table']['ProvisionedThroughput']['LastIncreaseDateTime'].timetuple())
 
     f.write(json.dumps(table_desc, indent=JSON_INDENT))
     f.close()
