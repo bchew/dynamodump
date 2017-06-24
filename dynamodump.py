@@ -787,6 +787,17 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                      str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
+def do_ttl_attribute(profile, region, table_name, ttl_attribute):
+    dynamo = _get_aws_client(profile, region, "dynamodb")
+    logging.info("Setting ttl attribute..")
+    response = dynamo.update_time_to_live(
+        TableName=table_name,
+            TimeToLiveSpecification={
+                'Enabled': True,
+                'AttributeName': ttl_attribute
+            }
+    )
+
 def main():
     """
     Entrypoint to the script
@@ -842,6 +853,9 @@ def main():
     parser.add_argument("--dataOnly", action="store_true", default=False,
                         help="Restore data only. Do not delete/recreate schema [optional for "
                         "restore]")
+    parser.add_argument("--ttlAttributeName",
+                        help="For restore mode, pass in the item attibute name to be used for "
+                        "setting the Time To Live property on the table.")
     parser.add_argument("--skipThroughputUpdate", action="store_true", default=False,
                         help="Skip updating throughput values across tables [optional]")
     parser.add_argument("--dumpPath", help="Directory to place and search for DynamoDB table "
@@ -1022,6 +1036,10 @@ def main():
         else:
             delete_table(conn, sleep_interval, dest_table)
             do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
+
+        if args.ttlAttributeName:
+            do_ttl_attribute(args.profile, args.region, dest_table, args.ttlAttributeName)
+
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
             matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
