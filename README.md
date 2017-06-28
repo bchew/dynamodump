@@ -9,12 +9,18 @@ Suitable for DynamoDB usages of smaller data volume which do not warrant the usa
 
 dynamodump supports local DynamoDB instances as well (tested with [dynalite](https://github.com/mhart/dynalite)).
 
+dynamodump support user credentials and IAM roles
+
+You can also use dynamodump for cross account backup/restore, thus you can run on one aws instance of an aws account to process dynamodb tables backup/restore/empty of another trusted aws account
+
 Usage
 -----
 ```
 usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET] [-m MODE] [-r REGION]
                      [--host HOST] [--port PORT] [--accessKey ACCESSKEY]
                      [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE]
+                     [-u ASSUMEACCOUNTID] [-n ASSUMEDROLENAME]
+                     [--sessionToken SESSIONTOKEN]
                      [-d DESTTABLE] [--prefixSeparator PREFIXSEPARATOR]
                      [--noSeparator] [--readCapacity READCAPACITY] [-t TAG]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
@@ -47,6 +53,11 @@ optional arguments:
                         AWS credentials file profile to use. Allows you to use
                         a profile instead of accessKey, secretKey
                         authentication
+  -u ASSUMEDACCOUNTID   AWS Account ID to use if the programm should assume an iam role from another account
+  -n ASSUMEDROLENAME    Role name to be assumed
+  --sessionToken SESSIONTOKEN  
+                        Session tocken to use for aws credentials
+
   -s SRCTABLE, --srcTable SRCTABLE
                         Source DynamoDB table name to backup or restore from,
                         use 'tablename*' for wildcard prefix selection or '*'
