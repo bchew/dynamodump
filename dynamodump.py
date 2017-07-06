@@ -9,6 +9,7 @@
 """
 
 import argparse
+import fnmatch
 import json
 import logging
 import os
@@ -23,6 +24,7 @@ import re
 import zipfile
 import tarfile
 import urllib2
+
 import boto.dynamodb2.layer1
 from boto.dynamodb2.exceptions import ProvisionedThroughputExceededException
 import botocore
@@ -279,16 +281,8 @@ def get_table_name_matches(conn, table_name_wildcard, separator):
 
     matching_tables = []
     for table_name in all_tables:
-        if table_name_wildcard == "*":
-            matching_tables.append(table_name)
-        elif separator is None:
-            if table_name.startswith(table_name_wildcard.split("*", 1)[0]):
-                matching_tables.append(table_name)
-        elif separator == "":
-            if table_name.startswith(re.sub(r"([A-Z])", r" \1",
-                                            table_name_wildcard.split("*", 1)[0]).split()[0]):
-                matching_tables.append(table_name)
-        elif table_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
+        if fnmatch.fnmatch(table_name, table_name_wildcard):
+            logging.info("Adding %s", table_name)
             matching_tables.append(table_name)
 
     return matching_tables
@@ -914,6 +908,8 @@ def main():
         try:
             if args.srcTable.find("*") == -1:
                 do_backup(conn, args.read_capacity, tableQueue=None)
+            else:
+                do_backup(conn, args.read_capacity, matching_backup_tables)
         except AttributeError:
             # Didn't specify srcTable if we get here
 
