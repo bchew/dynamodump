@@ -914,6 +914,8 @@ def main():
         try:
             if args.srcTable.find("*") == -1:
                 do_backup(conn, args.read_capacity, tableQueue=None)
+            else:
+                do_backup(conn, args.readCapacity, tableQueue=args.srcTable)
         except AttributeError:
             # Didn't specify srcTable if we get here
 
