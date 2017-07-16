@@ -14,5 +14,13 @@ script:
   - python dynamodump.py -m restore -r local -s testTable -d testRestoredTable --host localhost --port 4567 --accessKey a --secretKey a
   - python dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 4567 --accessKey a --secretKey a
   - python test/test.py
+  - python dynamodump.py -m restore -r local -s "*" --host localhost --port 4567 --accessKey a --secretKey a
+  - rm -rf dump/test*
+  - python dynamodump.py -m backup -r local -s "*" --host localhost --port 4567 --accessKey a --secretKey a
+  - python test/test.py
+  - python dynamodump.py -m restore -r local -s "test*" --host localhost --port 4567 --accessKey a --secretKey a --prefixSeparator ""
+  - rm -rf dump/test*
+  - python dynamodump.py -m backup -r local -s "test*" --host localhost --port 4567 --accessKey a --secretKey a --prefixSeparator ""
+  - python test/test.py
 matrix:
     fast_finish: true
