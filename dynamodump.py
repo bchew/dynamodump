@@ -9,7 +9,9 @@
 """
 
 import argparse
+import base64
 import fnmatch
+import hashlib
 import json
 import logging
 import os
@@ -80,6 +82,44 @@ def _get_aws_client(profile, region, service):
     else:
         client = boto3.client(service, region_name=aws_region)
     return client
+
+
+def encrypt(message, password=None):
+    """
+    Encrypt data using AES in CFB mode if password is provided. Otherwise
+    return original message
+    """
+    if not password:
+        return message
+
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError:
+        logging.exception("cryptography library is required for encryption/decryption")
+        sys.exit(1)
+
+    key = base64.urlsafe_b64encode(hashlib.sha256(password).digest())
+    return base64.b64encode(Fernet(key).encrypt(message))
+
+
+def decrypt(message, password=None):
+    """
+    Decrypt data using AES in CFB mode if password is provided. Otherwise we
+    return the original message
+    """
+    if not password:
+        return message
+
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError:
+        logging.exception("cryptography library is required for encryption/decryption")
+        sys.exit(1)
+
+    key = base64.urlsafe_b64encode(hashlib.sha256(password).digest())
+    ciphertext = base64.b64decode(message)
+
+    return Fernet(key).decrypt(ciphertext)
 
 
 def get_table_name_by_tag(profile, region, tag):
@@ -520,7 +560,7 @@ def do_empty(dynamo, table_name):
         datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
-def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
+def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, password=None):
     """
     Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
     """
@@ -545,7 +585,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
             logging.info("Dumping table schema for " + table_name)
             f = open(args.dumpPath + os.sep + table_name + os.sep + SCHEMA_FILE, "w+")
             table_desc = dynamo.describe_table(table_name)
-            f.write(json.dumps(table_desc, indent=JSON_INDENT))
+            f.write(encrypt(json.dumps(table_desc, indent=JSON_INDENT), password))
             f.close()
 
             if not args.schemaOnly:
@@ -579,7 +619,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
                         args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
                         str(i).zfill(4) + ".json", "w+"
                     )
-                    f.write(json.dumps(scanned_table, indent=JSON_INDENT))
+                    f.write(encrypt(json.dumps(scanned_table, indent=JSON_INDENT), password))
                     f.close()
 
                     i += 1
@@ -603,7 +643,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
             tableQueue.task_done()
 
 
-def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
+def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity, password=None):
     """
     Restore table
     """
@@ -622,7 +662,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
             logging.info("Cannot find \"%s/%s\" directory containing dump files!"
                          % (CURRENT_WORKING_DIR, source_table))
             sys.exit(1)
-    table_data = json.load(open(dump_data_path + os.sep + source_table + os.sep + SCHEMA_FILE))
+    table_data = json.loads(decrypt(open(dump_data_path + os.sep + source_table + os.sep + SCHEMA_FILE).read(), password))
     table = table_data["Table"]
     table_attribute_definitions = table["AttributeDefinitions"]
     table_table_name = destination_table
@@ -698,10 +738,10 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         for data_file in data_file_list:
             logging.info("Processing " + data_file + " of " + destination_table)
             items = []
-            item_data = json.load(
+            item_data = json.loads(decrypt(
                 open(
                     dump_data_path + os.sep + source_table + os.sep + DATA_DIR + os.sep + data_file
-                )
+                ).read(), password)
             )
             items.extend(item_data["Items"])
 
@@ -808,6 +848,9 @@ def main():
     parser.add_argument("-p", "--profile",
                         help="AWS credentials file profile to use. Allows you to use a "
                         "profile instead accessKey, secretKey authentication")
+    parser.add_argument("-P", "--password",
+                        help="Password to encrypt local schema/data files. If not "
+                        "specified, files will be saved unencrypted")
     parser.add_argument("-s", "--srcTable",
                         help="Source DynamoDB table name to backup or restore from, "
                         "use 'tablename*' for wildcard prefix selection or '*' for "
@@ -907,9 +950,9 @@ def main():
 
         try:
             if args.srcTable.find("*") == -1:
-                do_backup(conn, args.read_capacity, tableQueue=None)
+                do_backup(conn, args.read_capacity, tableQueue=None, password=args.password)
             else:
-                do_backup(conn, args.read_capacity, matching_backup_tables)
+                do_backup(conn, args.read_capacity, matching_backup_tables, password=args.password)
         except AttributeError:
             # Didn't specify srcTable if we get here
 
@@ -917,8 +960,7 @@ def main():
             threads = []
 
             for i in range(MAX_NUMBER_BACKUP_WORKERS):
-                t = threading.Thread(target=do_backup, args=(conn, args.readCapacity),
-                                     kwargs={"tableQueue": q})
+                t = threading.Thread(target=do_backup, args=(conn, args.readCapacity), kwargs={"tableQueue": q, "password": args.password})
                 t.start()
                 threads.append(t)
                 time.sleep(THREAD_START_DELAY)
@@ -997,7 +1039,8 @@ def main():
                                                sleep_interval,
                                                source_table,
                                                source_table,
-                                               args.writeCapacity))
+                                               args.writeCapacity),
+                                         kwargs={"password": args.password})
                 else:
                     t = threading.Thread(target=do_restore,
                                          args=(conn, sleep_interval, source_table,
@@ -1005,7 +1048,8 @@ def main():
                                                              args.srcTable,
                                                              dest_table,
                                                              prefix_separator),
-                                               args.writeCapacity))
+                                               args.writeCapacity),
+                                         kwargs={"password": args.password})
                 threads.append(t)
                 t.start()
                 time.sleep(THREAD_START_DELAY)
@@ -1017,7 +1061,7 @@ def main():
                          dest_table + " completed!")
         else:
             delete_table(conn, sleep_interval, dest_table)
-            do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
+            do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity, password=args.password)
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
             matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)

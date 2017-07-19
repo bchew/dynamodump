@@ -12,11 +12,13 @@ dynamodump supports local DynamoDB instances as well (tested with [dynalite](htt
 Usage
 -----
 ```
-usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET] [-m MODE] [-r REGION]
-                     [--host HOST] [--port PORT] [--accessKey ACCESSKEY]
-                     [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE]
-                     [-d DESTTABLE] [--prefixSeparator PREFIXSEPARATOR]
-                     [--noSeparator] [--readCapacity READCAPACITY] [-t TAG]
+usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET]
+                     [-m {backup,restore,empty}] [-r REGION] [--host HOST]
+                     [--port PORT] [--accessKey ACCESSKEY]
+                     [--secretKey SECRETKEY] [-p PROFILE] [-P PASSWORD]
+                     [-s SRCTABLE] [-d DESTTABLE]
+                     [--prefixSeparator PREFIXSEPARATOR] [--noSeparator]
+                     [--readCapacity READCAPACITY] [-t TAG]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
                      [--dataOnly] [--skipThroughputUpdate]
                      [--dumpPath DUMPPATH] [--log LOG]
@@ -31,7 +33,8 @@ optional arguments:
   -b BUCKET, --bucket BUCKET
                         S3 bucket in which to store or retrieve backups.[must
                         already exist]
-  -m MODE, --mode MODE  'backup' or 'restore' or 'empty'
+  -m {backup,restore,empty}, --mode {backup,restore,empty}
+                        Operation to perform
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Can use
                         AWS_DEFAULT_REGION for local testing. Use 'local' for
@@ -44,8 +47,10 @@ optional arguments:
                         Secret key of local DynamoDB [required only for local]
   -p PROFILE, --profile PROFILE
                         AWS credentials file profile to use. Allows you to use
-                        a profile instead of accessKey, secretKey
-                        authentication
+                        a profile instead accessKey, secretKey authentication
+  -P PASSWORD, --password PASSWORD
+                        Password to encrypt local schema/data files. If not
+                        specified, files will be saved unencrypted
   -s SRCTABLE, --srcTable SRCTABLE
                         Source DynamoDB table name to backup or restore from,
                         use 'tablename*' for wildcard prefix selection or '*'
@@ -94,6 +99,12 @@ Single table backup/restore:
 python dynamodump.py -m backup -r us-west-1 -s testTable
 
 python dynamodump.py -m restore -r us-west-1 -s testTable
+```
+Single table backup/restore with encrypted local files:
+```
+python dynamodump.py -m backup -r us-west-1 -s testTable -P mekmitasdigoat
+
+python dynamodump.py -m restore -r us-west-1 -s testTable -P mekmitasdigoat
 ```
 Multiple table backup/restore (assumes prefix of 'production-' of table names, use --prefixSeparator to specify a
 different separator):
