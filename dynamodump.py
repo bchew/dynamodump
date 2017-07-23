@@ -505,6 +505,8 @@ def calculate_limit(table_desc, read_capacity):
     max_page_size_bytes = 1024 * 1024
     if limit * average_item_size_bytes > max_page_size_bytes:
         limit = None
+    elif limit == 0:
+        limit = 1
 
     return limit
 
