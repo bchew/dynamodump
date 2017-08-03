@@ -525,83 +525,86 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
     Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
     """
 
-    if srcTable:
-        table_name = srcTable
+    try:
+        if srcTable:
+            table_name = srcTable
 
-    if tableQueue:
-        while True:
-            table_name = tableQueue.get()
-            if table_name is None:
-                break
+        if tableQueue:
+            while True:
+                table_name = tableQueue.get()
+                if table_name is None:
+                    break
 
-            logging.info("Starting backup for " + table_name + "..")
+                logging.info("Starting backup for " + table_name + "..")
 
-            # trash data, re-create subdir
-            if os.path.exists(args.dumpPath + os.sep + table_name):
-                shutil.rmtree(args.dumpPath + os.sep + table_name)
-            mkdir_p(args.dumpPath + os.sep + table_name)
+                # trash data, re-create subdir
+                if os.path.exists(args.dumpPath + os.sep + table_name):
+                    shutil.rmtree(args.dumpPath + os.sep + table_name)
+                mkdir_p(args.dumpPath + os.sep + table_name)
 
-            # get table schema
-            logging.info("Dumping table schema for " + table_name)
-            f = open(args.dumpPath + os.sep + table_name + os.sep + SCHEMA_FILE, "w+")
-            table_desc = dynamo.describe_table(table_name)
-            f.write(json.dumps(table_desc, indent=JSON_INDENT))
-            f.close()
+                # get table schema
+                logging.info("Dumping table schema for " + table_name)
+                f = open(args.dumpPath + os.sep + table_name + os.sep + SCHEMA_FILE, "w+")
+                table_desc = dynamo.describe_table(table_name)
+                f.write(json.dumps(table_desc, indent=JSON_INDENT))
+                f.close()
 
-            if not args.schemaOnly:
-                original_read_capacity = \
-                    table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
-                original_write_capacity = \
-                    table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
+                if not args.schemaOnly:
+                    original_read_capacity = \
+                        table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
+                    original_write_capacity = \
+                        table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
 
-                # override table read capacity if specified
-                if read_capacity is not None and read_capacity != original_read_capacity:
-                    update_provisioned_throughput(dynamo, table_name,
-                                                  read_capacity, original_write_capacity)
+                    # override table read capacity if specified
+                    if read_capacity is not None and read_capacity != original_read_capacity:
+                        update_provisioned_throughput(dynamo, table_name,
+                                                      read_capacity, original_write_capacity)
 
-                # get table data
-                logging.info("Dumping table items for " + table_name)
-                mkdir_p(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR)
+                    # get table data
+                    logging.info("Dumping table items for " + table_name)
+                    mkdir_p(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR)
 
-                i = 1
-                last_evaluated_key = None
+                    i = 1
+                    last_evaluated_key = None
 
-                while True:
-                    try:
-                        scanned_table = dynamo.scan(table_name,
-                                                    exclusive_start_key=last_evaluated_key)
-                    except ProvisionedThroughputExceededException:
-                        logging.error("EXCEEDED THROUGHPUT ON TABLE " +
-                                      table_name + ".  BACKUP FOR IT IS USELESS.")
-                        tableQueue.task_done()
+                    while True:
+                        try:
+                            scanned_table = dynamo.scan(table_name,
+                                                        exclusive_start_key=last_evaluated_key)
+                        except ProvisionedThroughputExceededException:
+                            logging.error("EXCEEDED THROUGHPUT ON TABLE " +
+                                          table_name + ".  BACKUP FOR IT IS USELESS.")
+                            tableQueue.task_done()
 
-                    f = open(
-                        args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
-                        str(i).zfill(4) + ".json", "w+"
-                    )
-                    f.write(json.dumps(scanned_table, indent=JSON_INDENT))
-                    f.close()
+                        f = open(
+                            args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
+                            str(i).zfill(4) + ".json", "w+"
+                        )
+                        f.write(json.dumps(scanned_table, indent=JSON_INDENT))
+                        f.close()
 
-                    i += 1
+                        i += 1
 
-                    try:
-                        last_evaluated_key = scanned_table["LastEvaluatedKey"]
-                    except KeyError:
-                        break
+                        try:
+                            last_evaluated_key = scanned_table["LastEvaluatedKey"]
+                        except KeyError:
+                            break
 
-                # revert back to original table read capacity if specified
-                if read_capacity is not None and read_capacity != original_read_capacity:
-                    update_provisioned_throughput(dynamo,
-                                                  table_name,
-                                                  original_read_capacity,
-                                                  original_write_capacity,
-                                                  False)
+                    # revert back to original table read capacity if specified
+                    if read_capacity is not None and read_capacity != original_read_capacity:
+                        update_provisioned_throughput(dynamo,
+                                                      table_name,
+                                                      original_read_capacity,
+                                                      original_write_capacity,
+                                                      False)
 
-                logging.info("Backup for " + table_name + " table completed. Time taken: " + str(
-                    datetime.datetime.now().replace(microsecond=0) - start_time))
+                    logging.info("Backup for " + table_name + " table completed. Time taken: " + str(
+                        datetime.datetime.now().replace(microsecond=0) - start_time))
 
-            tableQueue.task_done()
-
+                tableQueue.task_done()
+    except Exception as e:
+        logging.error("Exception caught (%s): %s" % (type(e).__name__, e))
+        tableQueue.task_done()
 
 def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
     """
