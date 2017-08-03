@@ -525,87 +525,83 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
     Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
     """
 
-    try:
-        if srcTable:
-            table_name = srcTable
+    if srcTable:
+        table_name = srcTable
 
-        if tableQueue:
-            while True:
-                table_name = tableQueue.get()
-                if table_name is None:
-                    break
+    if tableQueue:
+        while True:
+            table_name = tableQueue.get()
+            if table_name is None:
+                break
 
-                logging.info("Starting backup for " + table_name + "..")
+            logging.info("Starting backup for " + table_name + "..")
 
-                # trash data, re-create subdir
-                if os.path.exists(args.dumpPath + os.sep + table_name):
-                    shutil.rmtree(args.dumpPath + os.sep + table_name)
-                mkdir_p(args.dumpPath + os.sep + table_name)
+            # trash data, re-create subdir
+            if os.path.exists(args.dumpPath + os.sep + table_name):
+                shutil.rmtree(args.dumpPath + os.sep + table_name)
+            mkdir_p(args.dumpPath + os.sep + table_name)
 
-                # get table schema
-                logging.info("Dumping table schema for " + table_name)
-                f = open(args.dumpPath + os.sep + table_name + os.sep + SCHEMA_FILE, "w+")
-                table_desc = dynamo.describe_table(table_name)
-                f.write(json.dumps(table_desc, indent=JSON_INDENT))
-                f.close()
+            # get table schema
+            logging.info("Dumping table schema for " + table_name)
+            f = open(args.dumpPath + os.sep + table_name + os.sep + SCHEMA_FILE, "w+")
+            table_desc = dynamo.describe_table(table_name)
+            f.write(json.dumps(table_desc, indent=JSON_INDENT))
+            f.close()
 
-                if not args.schemaOnly:
-                    original_read_capacity = \
-                        table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
-                    original_write_capacity = \
-                        table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
+            if not args.schemaOnly:
+                original_read_capacity = \
+                    table_desc["Table"]["ProvisionedThroughput"]["ReadCapacityUnits"]
+                original_write_capacity = \
+                    table_desc["Table"]["ProvisionedThroughput"]["WriteCapacityUnits"]
 
-                    # override table read capacity if specified
-                    if read_capacity is not None and read_capacity != original_read_capacity:
-                        update_provisioned_throughput(dynamo, table_name,
-                                                      read_capacity, original_write_capacity)
+                # override table read capacity if specified
+                if read_capacity is not None and read_capacity != original_read_capacity:
+                    update_provisioned_throughput(dynamo, table_name,
+                                                  read_capacity, original_write_capacity)
 
-                    # get table data
-                    logging.info("Dumping table items for " + table_name)
-                    mkdir_p(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR)
+                # get table data
+                logging.info("Dumping table items for " + table_name)
+                mkdir_p(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR)
 
-                    i = 1
-                    last_evaluated_key = None
+                i = 1
+                last_evaluated_key = None
 
-                    while True:
-                        try:
-                            scanned_table = dynamo.scan(table_name,
-                                                        exclusive_start_key=last_evaluated_key)
-                        except ProvisionedThroughputExceededException:
-                            logging.error("EXCEEDED THROUGHPUT ON TABLE " +
-                                          table_name + ".  BACKUP FOR IT IS USELESS.")
-                            tableQueue.task_done()
+                while True:
+                    try:
+                        scanned_table = dynamo.scan(table_name,
+                                                    exclusive_start_key=last_evaluated_key)
+                    except ProvisionedThroughputExceededException:
+                        logging.error("EXCEEDED THROUGHPUT ON TABLE " +
+                                      table_name + ".  BACKUP FOR IT IS USELESS.")
+                        tableQueue.task_done()
 
-                        f = open(
-                            args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
-                            str(i).zfill(4) + ".json", "w+"
-                        )
-                        f.write(json.dumps(scanned_table, indent=JSON_INDENT))
-                        f.close()
+                    f = open(
+                        args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
+                        str(i).zfill(4) + ".json", "w+"
+                    )
+                    f.write(json.dumps(scanned_table, indent=JSON_INDENT))
+                    f.close()
 
-                        i += 1
+                    i += 1
 
-                        try:
-                            last_evaluated_key = scanned_table["LastEvaluatedKey"]
-                        except KeyError:
-                            break
+                    try:
+                        last_evaluated_key = scanned_table["LastEvaluatedKey"]
+                    except KeyError:
+                        break
 
-                    # revert back to original table read capacity if specified
-                    if read_capacity is not None and read_capacity != original_read_capacity:
-                        update_provisioned_throughput(dynamo,
-                                                      table_name,
-                                                      original_read_capacity,
-                                                      original_write_capacity,
-                                                      False)
+                # revert back to original table read capacity if specified
+                if read_capacity is not None and read_capacity != original_read_capacity:
+                    update_provisioned_throughput(dynamo,
+                                                  table_name,
+                                                  original_read_capacity,
+                                                  original_write_capacity,
+                                                  False)
 
-                    logging.info("Backup for " + table_name + " table completed. Time taken: " + str(
-                        datetime.datetime.now().replace(microsecond=0) - start_time))
+                logging.info("Backup for " + table_name + " table completed. Time taken: " + str(
+                    datetime.datetime.now().replace(microsecond=0) - start_time))
 
-                tableQueue.task_done()
+            tableQueue.task_done()
 
-    except Exception as e:
-        logging.error("Exception caught (%s): %s" % (type(e).__name__, e))
-        tableQueue.task_done()
 
 def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
     """
@@ -613,176 +609,176 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
     """
     logging.info("Starting restore for " + source_table + " to " + destination_table + "..")
 
-        # create table using schema
-        # restore source_table from dump directory if it exists else try current working directory
-        if os.path.exists("%s/%s" % (args.dumpPath, source_table)):
-            dump_data_path = args.dumpPath
+    # create table using schema
+    # restore source_table from dump directory if it exists else try current working directory
+    if os.path.exists("%s/%s" % (args.dumpPath, source_table)):
+        dump_data_path = args.dumpPath
+    else:
+        logging.info("Cannot find \"./%s/%s\", Now trying current working directory.."
+                     % (args.dumpPath, source_table))
+        if os.path.exists("%s/%s" % (CURRENT_WORKING_DIR, source_table)):
+            dump_data_path = CURRENT_WORKING_DIR
         else:
-            logging.info("Cannot find \"./%s/%s\", Now trying current working directory.."
-                         % (args.dumpPath, source_table))
-            if os.path.exists("%s/%s" % (CURRENT_WORKING_DIR, source_table)):
-                dump_data_path = CURRENT_WORKING_DIR
-            else:
-                logging.info("Cannot find \"%s/%s\" directory containing dump files!"
-                             % (CURRENT_WORKING_DIR, source_table))
-                sys.exit(1)
-        table_data = json.load(open(dump_data_path + os.sep + source_table + os.sep + SCHEMA_FILE))
-        table = table_data["Table"]
-        table_attribute_definitions = table["AttributeDefinitions"]
-        table_table_name = destination_table
-        table_key_schema = table["KeySchema"]
-        original_read_capacity = table["ProvisionedThroughput"]["ReadCapacityUnits"]
-        original_write_capacity = table["ProvisionedThroughput"]["WriteCapacityUnits"]
-        table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
-        table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
+            logging.info("Cannot find \"%s/%s\" directory containing dump files!"
+                         % (CURRENT_WORKING_DIR, source_table))
+            sys.exit(1)
+    table_data = json.load(open(dump_data_path + os.sep + source_table + os.sep + SCHEMA_FILE))
+    table = table_data["Table"]
+    table_attribute_definitions = table["AttributeDefinitions"]
+    table_table_name = destination_table
+    table_key_schema = table["KeySchema"]
+    original_read_capacity = table["ProvisionedThroughput"]["ReadCapacityUnits"]
+    original_write_capacity = table["ProvisionedThroughput"]["WriteCapacityUnits"]
+    table_local_secondary_indexes = table.get("LocalSecondaryIndexes")
+    table_global_secondary_indexes = table.get("GlobalSecondaryIndexes")
 
-        # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original
-        # write capacity is lower
-        if write_capacity is None:
-            if original_write_capacity < RESTORE_WRITE_CAPACITY:
-                write_capacity = RESTORE_WRITE_CAPACITY
-            else:
-                write_capacity = original_write_capacity
-
-        # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original
-        # write capacity is lower
-        original_gsi_write_capacities = []
-        if table_global_secondary_indexes is not None:
-            for gsi in table_global_secondary_indexes:
-                original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
-
-                if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < int(write_capacity):
-                    gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = int(write_capacity)
-
-        # temp provisioned throughput for restore
-        table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity),
-                                        "WriteCapacityUnits": int(write_capacity)}
-
-        if not args.dataOnly:
-
-            logging.info("Creating " + destination_table + " table with temp write capacity of " +
-                         str(write_capacity))
-
-            while True:
-                try:
-                    dynamo.create_table(table_attribute_definitions, table_table_name, table_key_schema,
-                                        table_provisioned_throughput, table_local_secondary_indexes,
-                                        table_global_secondary_indexes)
-                    break
-                except boto.exception.JSONResponseError as e:
-                    if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-                        logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
-                        time.sleep(sleep_interval)
-                    elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-                        logging.info("Control plane limit exceeded, "
-                                     "retrying creation of " + destination_table + "..")
-                        time.sleep(sleep_interval)
-                    else:
-                        logging.exception(e)
-                        sys.exit(1)
-
-            # wait for table creation completion
-            wait_for_active_table(dynamo, destination_table, "created")
+    # override table write capacity if specified, else use RESTORE_WRITE_CAPACITY if original
+    # write capacity is lower
+    if write_capacity is None:
+        if original_write_capacity < RESTORE_WRITE_CAPACITY:
+            write_capacity = RESTORE_WRITE_CAPACITY
         else:
-            # update provisioned capacity
-            if int(write_capacity) > original_write_capacity:
+            write_capacity = original_write_capacity
+
+    # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original
+    # write capacity is lower
+    original_gsi_write_capacities = []
+    if table_global_secondary_indexes is not None:
+        for gsi in table_global_secondary_indexes:
+            original_gsi_write_capacities.append(gsi["ProvisionedThroughput"]["WriteCapacityUnits"])
+
+            if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < int(write_capacity):
+                gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = int(write_capacity)
+
+    # temp provisioned throughput for restore
+    table_provisioned_throughput = {"ReadCapacityUnits": int(original_read_capacity),
+                                    "WriteCapacityUnits": int(write_capacity)}
+
+    if not args.dataOnly:
+
+        logging.info("Creating " + destination_table + " table with temp write capacity of " +
+                     str(write_capacity))
+
+        while True:
+            try:
+                dynamo.create_table(table_attribute_definitions, table_table_name, table_key_schema,
+                                    table_provisioned_throughput, table_local_secondary_indexes,
+                                    table_global_secondary_indexes)
+                break
+            except boto.exception.JSONResponseError as e:
+                if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+                    logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
+                    time.sleep(sleep_interval)
+                elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+                    logging.info("Control plane limit exceeded, "
+                                 "retrying creation of " + destination_table + "..")
+                    time.sleep(sleep_interval)
+                else:
+                    logging.exception(e)
+                    sys.exit(1)
+
+        # wait for table creation completion
+        wait_for_active_table(dynamo, destination_table, "created")
+    else:
+        # update provisioned capacity
+        if int(write_capacity) > original_write_capacity:
+            update_provisioned_throughput(dynamo,
+                                          destination_table,
+                                          original_read_capacity,
+                                          write_capacity,
+                                          False)
+
+    if not args.schemaOnly:
+        # read data files
+        logging.info("Restoring data for " + destination_table + " table..")
+        data_file_list = os.listdir(dump_data_path + os.sep + source_table +
+                                    os.sep + DATA_DIR + os.sep)
+        data_file_list.sort()
+
+        for data_file in data_file_list:
+            logging.info("Processing " + data_file + " of " + destination_table)
+            items = []
+            item_data = json.load(
+                open(
+                    dump_data_path + os.sep + source_table + os.sep + DATA_DIR + os.sep + data_file
+                )
+            )
+            items.extend(item_data["Items"])
+
+            # batch write data
+            put_requests = []
+            while len(items) > 0:
+                put_requests.append({"PutRequest": {"Item": items.pop(0)}})
+
+                # flush every MAX_BATCH_WRITE
+                if len(put_requests) == MAX_BATCH_WRITE:
+                    logging.debug("Writing next " + str(MAX_BATCH_WRITE) +
+                                  " items to " + destination_table + "..")
+                    batch_write(dynamo, BATCH_WRITE_SLEEP_INTERVAL, destination_table, put_requests)
+                    del put_requests[:]
+
+            # flush remainder
+            if len(put_requests) > 0:
+                batch_write(dynamo, BATCH_WRITE_SLEEP_INTERVAL, destination_table, put_requests)
+
+        if not args.skipThroughputUpdate:
+            # revert to original table write capacity if it has been modified
+            if int(write_capacity) != original_write_capacity:
                 update_provisioned_throughput(dynamo,
                                               destination_table,
                                               original_read_capacity,
-                                              write_capacity,
+                                              original_write_capacity,
                                               False)
 
-        if not args.schemaOnly:
-            # read data files
-            logging.info("Restoring data for " + destination_table + " table..")
-            data_file_list = os.listdir(dump_data_path + os.sep + source_table +
-                                        os.sep + DATA_DIR + os.sep)
-            data_file_list.sort()
-
-            for data_file in data_file_list:
-                logging.info("Processing " + data_file + " of " + destination_table)
-                items = []
-                item_data = json.load(
-                    open(
-                        dump_data_path + os.sep + source_table + os.sep + DATA_DIR + os.sep + data_file
-                    )
-                )
-                items.extend(item_data["Items"])
-
-                # batch write data
-                put_requests = []
-                while len(items) > 0:
-                    put_requests.append({"PutRequest": {"Item": items.pop(0)}})
-
-                    # flush every MAX_BATCH_WRITE
-                    if len(put_requests) == MAX_BATCH_WRITE:
-                        logging.debug("Writing next " + str(MAX_BATCH_WRITE) +
-                                      " items to " + destination_table + "..")
-                        batch_write(dynamo, BATCH_WRITE_SLEEP_INTERVAL, destination_table, put_requests)
-                        del put_requests[:]
-
-                # flush remainder
-                if len(put_requests) > 0:
-                    batch_write(dynamo, BATCH_WRITE_SLEEP_INTERVAL, destination_table, put_requests)
-
-            if not args.skipThroughputUpdate:
-                # revert to original table write capacity if it has been modified
-                if int(write_capacity) != original_write_capacity:
-                    update_provisioned_throughput(dynamo,
-                                                  destination_table,
-                                                  original_read_capacity,
-                                                  original_write_capacity,
-                                                  False)
-
-                # loop through each GSI to check if it has changed and update if necessary
-                if table_global_secondary_indexes is not None:
-                    gsi_data = []
-                    for gsi in table_global_secondary_indexes:
-                        wcu = gsi["ProvisionedThroughput"]["WriteCapacityUnits"]
-                        rcu = gsi["ProvisionedThroughput"]["ReadCapacityUnits"]
-                        original_gsi_write_capacity = original_gsi_write_capacities.pop(0)
-                        if original_gsi_write_capacity != wcu:
-                            gsi_data.append({
-                                "Update": {
-                                    "IndexName": gsi["IndexName"],
-                                    "ProvisionedThroughput": {
-                                        "ReadCapacityUnits":
-                                            int(rcu),
-                                        "WriteCapacityUnits": int(original_gsi_write_capacity)
-                                    }
+            # loop through each GSI to check if it has changed and update if necessary
+            if table_global_secondary_indexes is not None:
+                gsi_data = []
+                for gsi in table_global_secondary_indexes:
+                    wcu = gsi["ProvisionedThroughput"]["WriteCapacityUnits"]
+                    rcu = gsi["ProvisionedThroughput"]["ReadCapacityUnits"]
+                    original_gsi_write_capacity = original_gsi_write_capacities.pop(0)
+                    if original_gsi_write_capacity != wcu:
+                        gsi_data.append({
+                            "Update": {
+                                "IndexName": gsi["IndexName"],
+                                "ProvisionedThroughput": {
+                                    "ReadCapacityUnits":
+                                        int(rcu),
+                                    "WriteCapacityUnits": int(original_gsi_write_capacity)
                                 }
-                            })
+                            }
+                        })
 
-                    logging.info("Updating " + destination_table +
-                                 " global secondary indexes write capacities as necessary..")
-                    while True:
-                        try:
-                            dynamo.update_table(destination_table,
-                                                global_secondary_index_updates=gsi_data)
-                            break
-                        except boto.exception.JSONResponseError as e:
-                            if (e.body["__type"] ==
-                                    "com.amazonaws.dynamodb.v20120810#LimitExceededException"):
-                                logging.info(
-                                    "Limit exceeded, retrying updating throughput of"
-                                    "GlobalSecondaryIndexes in " + destination_table + "..")
-                                time.sleep(sleep_interval)
-                            elif (e.body["__type"] ==
-                                  "com.amazon.coral.availability#ThrottlingException"):
-                                logging.info(
-                                    "Control plane limit exceeded, retrying updating throughput of"
-                                    "GlobalSecondaryIndexes in " + destination_table + "..")
-                                time.sleep(sleep_interval)
+                logging.info("Updating " + destination_table +
+                             " global secondary indexes write capacities as necessary..")
+                while True:
+                    try:
+                        dynamo.update_table(destination_table,
+                                            global_secondary_index_updates=gsi_data)
+                        break
+                    except boto.exception.JSONResponseError as e:
+                        if (e.body["__type"] ==
+                                "com.amazonaws.dynamodb.v20120810#LimitExceededException"):
+                            logging.info(
+                                "Limit exceeded, retrying updating throughput of"
+                                "GlobalSecondaryIndexes in " + destination_table + "..")
+                            time.sleep(sleep_interval)
+                        elif (e.body["__type"] ==
+                              "com.amazon.coral.availability#ThrottlingException"):
+                            logging.info(
+                                "Control plane limit exceeded, retrying updating throughput of"
+                                "GlobalSecondaryIndexes in " + destination_table + "..")
+                            time.sleep(sleep_interval)
 
-            # wait for table to become active
-            wait_for_active_table(dynamo, destination_table, "active")
+        # wait for table to become active
+        wait_for_active_table(dynamo, destination_table, "active")
 
-            logging.info("Restore for " + source_table + " to " + destination_table +
-                         " table completed. Time taken: " + str(
-                             datetime.datetime.now().replace(microsecond=0) - start_time))
-        else:
-            logging.info("Empty schema of " + source_table + " table created. Time taken: " +
-                         str(datetime.datetime.now().replace(microsecond=0) - start_time))
+        logging.info("Restore for " + source_table + " to " + destination_table +
+                     " table completed. Time taken: " + str(
+                         datetime.datetime.now().replace(microsecond=0) - start_time))
+    else:
+        logging.info("Empty schema of " + source_table + " table created. Time taken: " +
+                     str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
 def main():
