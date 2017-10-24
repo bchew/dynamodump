@@ -148,7 +148,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     filename is args.dumpPath.  File would be "args.dumpPath" with suffix .tar.bz2 or .zip
     """
 
-    s3 = _get_aws_client(profile, region, "s3")
+    s3 = _get_aws_client(profile, 'us-east-1', "s3")
 
     if archive:
         if archive == "tar":
@@ -178,7 +178,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     # Therefore, just get item from bucket based on table name since that's what we name the files.
     filename = None
     for d in contents["Contents"]:
-        if d["Key"] == "dump/{}.{}".format(table, archive_type):
+        if d["Key"] == "{}.{}".format('dump', archive_type):
             filename = d["Key"]
 
     if not filename:
