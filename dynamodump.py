@@ -461,6 +461,9 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
                 logging.info("Control plane limit exceeded, retrying updating throughput"
                              "of " + table_name + "..")
                 time.sleep(sleep_interval)
+            else:
+                logging.exception("Failed to update table")
+                sys.exit(1)
 
     # wait for provisioned throughput update completion
     if wait:
@@ -769,6 +772,9 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                                 "Control plane limit exceeded, retrying updating throughput of"
                                 "GlobalSecondaryIndexes in " + destination_table + "..")
                             time.sleep(sleep_interval)
+                        else:
+                            logging.exception("Failed to update table")
+                            sys.exit(1)
 
         # wait for table to become active
         wait_for_active_table(dynamo, destination_table, "active")
