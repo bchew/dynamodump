@@ -363,7 +363,7 @@ def delete_table(conn, sleep_interval, table_name):
                     logging.info(table_name + " table is being deleted..")
                     time.sleep(sleep_interval)
                 else:
-                    logging.exception(e)
+                    logging.exception("Failed to delete table")
                     sys.exit(1)
 
         # if table exists, wait till deleted
@@ -378,7 +378,7 @@ def delete_table(conn, sleep_interval, table_name):
                     logging.info(table_name + " table deleted.")
                     pass
                 else:
-                    logging.exception(e)
+                    logging.exception("Failed to get table description")
                     sys.exit(1)
 
 
@@ -510,7 +510,7 @@ def do_empty(dynamo, table_name):
                              table_name + "..")
                 time.sleep(sleep_interval)
             else:
-                logging.exception(e)
+                logging.exception("Failed to create table")
                 sys.exit(1)
 
     # wait for table creation completion
@@ -674,7 +674,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                                  "retrying creation of " + destination_table + "..")
                     time.sleep(sleep_interval)
                 else:
-                    logging.exception(e)
+                    logging.exception("Failed to create table")
                     sys.exit(1)
 
         # wait for table creation completion
