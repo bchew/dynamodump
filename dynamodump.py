@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 """
     Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
@@ -23,8 +23,16 @@ import re
 import zipfile
 import tarfile
 
-from Queue import Queue
-from urllib2 import urlopen, URLError, HTTPError
+try:
+    from queue import Queue
+except ImportError:
+    from Queue import Queue
+
+try:
+    from urllib.request import urlopen
+    from urllib.error import URLError, HTTPError
+except ImportError:
+    from urllib2 import urlopen, URLError, HTTPError
 
 import boto.dynamodb2.layer1
 from boto.dynamodb2.exceptions import ProvisionedThroughputExceededException
