@@ -11,10 +11,21 @@ DATA_FILE = "0001.json"
 class TestDynamoDump(unittest.TestCase):
 
     def setUp(self):
-        self.test_table_schema = json.load(open(TEST_DATA_PATH + "/" + SCHEMA_FILE))
-        self.restored_test_table_schema = json.load(open(DUMP_DATA_PATH + "/" + SCHEMA_FILE))
-        self.test_table_data = json.load(open(TEST_DATA_PATH + "/data/" + DATA_FILE))
-        self.restored_test_table_data = json.load(open(DUMP_DATA_PATH + "/data/" + DATA_FILE))
+        with open(TEST_DATA_PATH + "/" + SCHEMA_FILE, 'r') as f:
+            data = f.read()
+        self.test_table_schema = json.loads(data)
+
+        with open(DUMP_DATA_PATH + "/" + SCHEMA_FILE, 'r') as f:
+            data = f.read()
+        self.restored_test_table_schema = json.loads(data)
+
+        with open(TEST_DATA_PATH + "/data/" + DATA_FILE, 'r') as f:
+            data = f.read()
+        self.test_table_data = json.loads(data)
+
+        with open(DUMP_DATA_PATH + "/data/" + DATA_FILE, 'r') as f:
+            data = f.read()
+        self.restored_test_table_data = json.loads(data)
 
     def test_schema(self):
         self.assertEqual(self.test_table_schema["Table"]["AttributeDefinitions"],
