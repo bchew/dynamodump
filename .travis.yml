@@ -3,6 +3,7 @@ env:
   - BOTO_CONFIG=/dev/null
 python:
   - "2.7"
+  - "3.6"
 before_install:
   # install and run latest DynamoDB Local
   - mkdir /tmp/dynamodb_local

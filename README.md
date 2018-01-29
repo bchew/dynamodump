@@ -1,7 +1,7 @@
 dynamodump
 ==========
 
-[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump)		
+[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump) [![DockerBuildstatus](https://img.shields.io/docker/build/bchew/dynamodump.svg)](https://hub.docker.com/r/bchew/dynamodump/)
 
 Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
@@ -12,8 +12,9 @@ dynamodump supports local DynamoDB instances as well (tested with [DynamoDB Loca
 Usage
 -----
 ```
-usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET] [-m MODE] [-r REGION]
-                     [--host HOST] [--port PORT] [--accessKey ACCESSKEY]
+usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET]
+                     [-m {backup,restore,empty}] [-r REGION] [--host HOST]
+                     [--port PORT] [--accessKey ACCESSKEY]
                      [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE]
                      [-d DESTTABLE] [--prefixSeparator PREFIXSEPARATOR]
                      [--noSeparator] [--readCapacity READCAPACITY] [-t TAG]
@@ -31,7 +32,8 @@ optional arguments:
   -b BUCKET, --bucket BUCKET
                         S3 bucket in which to store or retrieve backups.[must
                         already exist]
-  -m MODE, --mode MODE  'backup' or 'restore' or 'empty'
+  -m {backup,restore,empty}, --mode {backup,restore,empty}
+                        Operation to perform
   -r REGION, --region REGION
                         AWS region to use, e.g. 'us-west-1'. Can use
                         AWS_DEFAULT_REGION for local testing. Use 'local' for
@@ -44,8 +46,7 @@ optional arguments:
                         Secret key of local DynamoDB [required only for local]
   -p PROFILE, --profile PROFILE
                         AWS credentials file profile to use. Allows you to use
-                        a profile instead of accessKey, secretKey
-                        authentication
+                        a profile instead accessKey, secretKey authentication
   -s SRCTABLE, --srcTable SRCTABLE
                         Source DynamoDB table name to backup or restore from,
                         use 'tablename*' for wildcard prefix selection or '*'
