@@ -4,9 +4,9 @@ WORKDIR_NAME = "/root/dynamobackups"
 
 # Volume base path based on OS
 ifeq ($(OS),Windows_NT)
-	VOLUME_BASE = %cd%
+	WORK_DIR = $(CURDIR)
 else
-	VOLUME_BASE = $(PWD)
+	WORK_DIR = $(PWD)
 endif
 
 .PHONY: build
@@ -22,7 +22,7 @@ ssh-source:
 	--workdir $(WORKDIR_NAME) \
 	--volume $(VOLUME_BASE)/dynamobackups:$(WORKDIR_NAME) \
 	$(APP_NAME):latest \
-	/bin/sh -c "cp -f /root/.aws/credentials.source /root/.aws/credentials && sh"
+	sh -c "cp -f /root/.aws/credentials.source /root/.aws/credentials && sh"
 
 .PHONY: ssh-dest
 ssh-dest:
@@ -31,7 +31,7 @@ ssh-dest:
 	--workdir $(WORKDIR_NAME) \
 	--volume $(VOLUME_BASE)/dynamobackups:$(WORKDIR_NAME) \
 	$(APP_NAME):latest \
-	/bin/sh -c "cp -f /root/.aws/credentials.destination /root/.aws/credentials && sh"
+	sh -c "cp -f /root/.aws/credentials.destination /root/.aws/credentials && sh"
 
 .PHONY: rm
 rm:
