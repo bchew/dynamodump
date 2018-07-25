@@ -471,6 +471,9 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
                 logging.info("Control plane limit exceeded, retrying updating throughput"
                              "of " + table_name + "..")
                 time.sleep(sleep_interval)
+            elif e.body["message"] == "The requested throughput value equals the current value":
+                logging.info("Limit already set, no action is needed.")
+                break
 
     # wait for provisioned throughput update completion
     if wait:
