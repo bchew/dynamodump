@@ -86,6 +86,28 @@ optional arguments:
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
 
+Docker Deployment
+-----------------
+Prior building the Docker container you will need to create the aws_creds/credentials.source and aws_creds/credentials.destination files following the \*.sample templates provided under "aws_creds"
+Backup files are stored/mounted on the "dynamobackups" directory.
+
+Build container:
+```
+make build
+```
+Access container with connection to the AWS "source" account:
+```
+make ssh-source
+```
+Access container with connection to the AWS "destination" account:
+```
+make ssh-dest
+```
+Delete containers:
+```
+make rm
+```
+
 AWS example
 -----------
 The following examples assume your AWS access key and secret key is present in ~/.boto
