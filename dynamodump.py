@@ -59,6 +59,12 @@ MAX_NUMBER_BACKUP_WORKERS = 25
 METADATA_URL = "http://169.254.169.254/latest/meta-data/"
 
 
+def filter_data(data, filterAttributes):
+    data['Items'] = [{ attr: value for attr, value in item.iteritems() 
+                       if attr not in filterAttributes} for item in data['Items']]
+    return data
+
+
 def _get_aws_client(profile, region, service):
     """
     Build connection to some AWS service.
@@ -530,11 +536,10 @@ def do_empty(dynamo, table_name):
         datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
-def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
+def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, filterAttributes=[]):
     """
     Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
     """
-
     if srcTable:
         table_name = srcTable
 
@@ -589,6 +594,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
                         args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
                         str(i).zfill(4) + ".json", "w+"
                     )
+                    scanned_table = filter_data(scanned_table, filterAttributes)
                     f.write(json.dumps(scanned_table, indent=JSON_INDENT))
                     f.close()
 
@@ -839,6 +845,8 @@ def main():
     parser.add_argument("--writeCapacity",
                         help="Change the temp write capacity of the DynamoDB table to restore "
                         "to [defaults to " + str(RESTORE_WRITE_CAPACITY) + ", optional]")
+    parser.add_argument("--filterAttributes", help="Filter out attributes, comma delimited list "
+                        "[optional]")
     parser.add_argument("--schemaOnly", action="store_true", default=False,
                         help="Backup or restore the schema only. Do not backup/restore data. "
                         "Can be used with both backup and restore modes. Cannot be used with "
@@ -915,11 +923,16 @@ def main():
                          " table(s) in DynamoDB host to backup: " +
                          ", ".join(matching_backup_tables))
 
+        filter_attributes = []
+        if args.filterAttributes:
+            filter_attributes = args.filterAttributes.split(',')
+
         try:
             if args.srcTable.find("*") == -1:
-                do_backup(conn, args.read_capacity, tableQueue=None)
+                do_backup(conn, args.read_capacity, tableQueue=None, filterAttributes=filter_attributes)
             else:
-                do_backup(conn, args.read_capacity, matching_backup_tables)
+                do_backup(conn, args.read_capacity, matching_backup_tables, filterAttributes=filter_attributes)
+
         except AttributeError:
             # Didn't specify srcTable if we get here
 
@@ -928,7 +941,7 @@ def main():
 
             for i in range(MAX_NUMBER_BACKUP_WORKERS):
                 t = threading.Thread(target=do_backup, args=(conn, args.readCapacity),
-                                     kwargs={"tableQueue": q})
+                                     kwargs={"tableQueue": q, "filterAttributes": filter_attributes})
                 t.start()
                 threads.append(t)
                 time.sleep(THREAD_START_DELAY)
