@@ -540,6 +540,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, filterAttri
     """
     Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
     """
+
     if srcTable:
         table_name = srcTable
 
