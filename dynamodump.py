@@ -60,7 +60,7 @@ METADATA_URL = "http://169.254.169.254/latest/meta-data/"
 
 
 def filter_data(data, filterAttributes):
-    data['Items'] = [{attr: value for attr, value in item.iteritems()
+    data['Items'] = [{attr: value for attr, value in item.items()
                       if attr not in filterAttributes} for item in data['Items']]
     return data
 
