@@ -876,8 +876,21 @@ def main():
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
         if not args.profile:
-            conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
-                                                    aws_secret_access_key=args.secretKey)
+            if args.accessKey:
+                conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
+                                                        aws_secret_access_key=args.secretKey)
+            else:
+                if (
+                    os.getenv('AWS_SESSION_TOKEN') is not None and
+                    os.getenv('AWS_ACCESS_KEY_ID') is not None and
+                    os.getenv('AWS_SECRET_ACCESS_KEY') is not None
+                ):
+                    conn = boto.dynamodb2.connect_to_region(
+                        args.region,
+                        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                        aws_secret_access_key=os.getenv(
+                            'AWS_SECRET_ACCESS_KEY'),
+                        security_token=os.getenv('AWS_SESSION_TOKEN'))
             sleep_interval = AWS_SLEEP_INTERVAL
         else:
             conn = boto.dynamodb2.connect_to_region(args.region, profile_name=args.profile)
