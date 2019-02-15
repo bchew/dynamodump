@@ -1,7 +1,7 @@
 dynamodump
 ==========
 
-[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump) [![DockerBuildstatus](https://img.shields.io/docker/build/bchew/dynamodump.svg)](https://hub.docker.com/r/bchew/dynamodump/)
+This fork of https://github.com/bchew/dynamodump contains a refactor to add DynamoDB ondemand support and S3 backup support.
 
 Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
