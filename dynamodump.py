@@ -876,12 +876,20 @@ def main():
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
         if not args.profile:
-            conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
+            if os.environ.get('AWS_CONTAINER_CREDENTIALS_RELATIVE_URI') is not None:
+                # Ref https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html#task-iam-roles-minimum-sdk
+                creds = json.loads(urlopen('http://169.254.170.2%s' % os.environ.get('AWS_CONTAINER_CREDENTIALS_RELATIVE_URI')).read())
+                conn = boto.dynamodb2.connect_to_region(args.region,
+                    aws_access_key_id=creds['AccessKeyId'],
+                    aws_secret_access_key=creds['SecretAccessKey'],
+                    security_token=creds['Token'],
+                )
+            else:
+                conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
                                                     aws_secret_access_key=args.secretKey)
-            sleep_interval = AWS_SLEEP_INTERVAL
         else:
             conn = boto.dynamodb2.connect_to_region(args.region, profile_name=args.profile)
-            sleep_interval = AWS_SLEEP_INTERVAL
+        sleep_interval = AWS_SLEEP_INTERVAL
 
     # don't proceed if connection is not established
     if not conn:
