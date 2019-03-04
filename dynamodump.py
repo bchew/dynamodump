@@ -884,6 +884,12 @@ def main():
                     aws_secret_access_key=creds['SecretAccessKey'],
                     security_token=creds['Token'],
                 )
+            elif os.environ.get('AWS_ACCESS_KEY_ID') is not None and os.environ.get('AWS_SECRET_ACCESS_KEY') is not None:
+                conn = boto.dynamodb2.connect_to_region(args.region,
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                    security_token=os.environ.get('AWS_SESSION_TOKEN'),
+                )
             else:
                 conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
                                                     aws_secret_access_key=args.secretKey)
