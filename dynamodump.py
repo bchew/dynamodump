@@ -774,8 +774,9 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
     if not args.dataOnly:
 
-        logging.info("Creating " + destination_table + " table with temp write capacity of " +
-                     str(write_capacity))
+        logging.info("Creating " + destination_table + " table " +
+                     ("with demand provisioning" if args.demandProvisioning else "with temp write capacity of " +
+                      str(write_capacity)))
 
         create_table(dynamo, table_attribute_definitions, table_table_name, table_key_schema,
                      table_provisioned_throughput, table_local_secondary_indexes,
@@ -825,7 +826,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
             if len(put_requests) > 0:
                 batch_write(dynamo, BATCH_WRITE_SLEEP_INTERVAL, destination_table, put_requests)
 
-        if not args.skipThroughputUpdate:
+        if not args.demandProvisioning and not args.skipThroughputUpdate:
             # revert to original table write capacity if it has been modified
             if int(write_capacity) != original_write_capacity:
                 update_provisioned_throughput(dynamo,
@@ -948,7 +949,7 @@ def main():
     parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL "
                         "[optional]")
     parser.add_argument("--demandProvisioning", action="store_true", default=False,
-                        help="Override source provisioning and use PAY_PER_REQUEST"
+                        help="Override source provisioning and use PAY_PER_REQUEST "
                         "Demand provisioning instead [optional]")
     args = parser.parse_args()
 
