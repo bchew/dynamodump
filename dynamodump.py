@@ -511,21 +511,18 @@ def create_table(dynamo,
                 # them conform to https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html#API_CreateTable_RequestParameters
                 gsi = []
                 if table_global_secondary_indexes is not None:
-                    logging.info("GSI (2): %s" % json.dumps(table_global_secondary_indexes))
                     for index in table_global_secondary_indexes:
                         rationalised_index = {}
                         for key in [
                             'IndexName',
                             'KeySchema',
                             'Projection',
-                            #'ProvisionedThroughput'
+                            #'ProvisionedThroughput'  # Do not pass the ProvisionedThroughput
                             ]:
                             rationalised_index[key] = index[key]
                         gsi.append(rationalised_index)
-                    logging.info("GSI (3): %s" % json.dumps(gsi))
                 lsi = []
                 if table_local_secondary_indexes is not None:
-                    logging.info("LSI (2): %s" % json.dumps(table_global_secondary_indexes))
                     for index in table_local_secondary_indexes:
                         rationalised_index = {}
                         for key in [
@@ -535,7 +532,6 @@ def create_table(dynamo,
                             ]:
                             rationalised_index[key] = index[key]
                         lsi.append(rationalised_index)
-                    logging.info("LSI (3): %s" % json.dumps(lsi))
 
                 # Using the boto3 client for BillingMode parameter
                 dynamo3 = _get_aws_client(args.profile, args.region, "dynamodb")
