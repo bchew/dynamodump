@@ -21,6 +21,7 @@ usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
                      [--dataOnly] [--skipThroughputUpdate]
                      [--dumpPath DUMPPATH] [--log LOG]
+                     [--demandProvisioning]
 
 Simple DynamoDB backup/restore/empty.
 
@@ -82,6 +83,8 @@ optional arguments:
                         backups (defaults to use 'dump') [optional]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
+  --demandProvisioning  Override source provisioning and use PAY_PER_REQUEST
+                        Demand provisioning instead [optional]
 ```
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
@@ -120,6 +123,10 @@ Dump all table schemas and create the schemas (e.g. creating blank tables in a d
 python dynamodump.py -m backup -r us-west-1 -p source_credentials -s "*" --schemaOnly
 
 python dynamodump.py -m restore -r us-west-1 -p destination_credentials -s "*" --schemaOnly
+```
+Restore a table overriding the provisioning with PAY_PER_REQUEST billing:
+```
+python dynamodump.py -m restore -r us-west-1 -s testTable --demandProvisioning
 ```
 
 Backup all tables based on AWS tag `key=value`
