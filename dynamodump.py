@@ -699,7 +699,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
             tableQueue.task_done()
 
 
-def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity, demand_provisioning):
+def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
     """
     Restore table
     """
