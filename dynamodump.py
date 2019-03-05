@@ -539,14 +539,40 @@ def create_table(dynamo,
 
                 # Using the boto3 client for BillingMode parameter
                 dynamo3 = _get_aws_client(args.profile, args.region, "dynamodb")
-                dynamo3.create_table(
-                    AttributeDefinitions=table_attribute_definitions,
-                    TableName=table_name,
-                    KeySchema=table_key_schema,
-                    LocalSecondaryIndexes=lsi,
-                    GlobalSecondaryIndexes=gsi,
-                    BillingMode='PAY_PER_REQUEST'
-                )
+                if len(lsi) > 0:
+                    if len(gsi) > 0:
+                        dynamo3.create_table(
+                            AttributeDefinitions=table_attribute_definitions,
+                            TableName=table_name,
+                            KeySchema=table_key_schema,
+                            LocalSecondaryIndexes=lsi,
+                            GlobalSecondaryIndexes=gsi,
+                            BillingMode='PAY_PER_REQUEST'
+                        )
+                    else:
+                        dynamo3.create_table(
+                            AttributeDefinitions=table_attribute_definitions,
+                            TableName=table_name,
+                            KeySchema=table_key_schema,
+                            LocalSecondaryIndexes=lsi,
+                            BillingMode='PAY_PER_REQUEST'
+                        )
+                elif len(gsi) > 0:
+                    dynamo3.create_table(
+                        AttributeDefinitions=table_attribute_definitions,
+                        TableName=table_name,
+                        KeySchema=table_key_schema,
+                        GlobalSecondaryIndexes=gsi,
+                        BillingMode='PAY_PER_REQUEST'
+                    )
+                else:
+                    dynamo3.create_table(
+                        AttributeDefinitions=table_attribute_definitions,
+                        TableName=table_name,
+                        KeySchema=table_key_schema,
+                        BillingMode='PAY_PER_REQUEST'
+                    )
+
                 break
 
             # Handle the https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html exceptions
