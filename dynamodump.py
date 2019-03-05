@@ -507,14 +507,44 @@ def create_table(dynamo,
     while True:
         if args.demandProvisioning:
             try:
+                # Convert the secondary index representations to make
+                # them conform to https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html#API_CreateTable_RequestParameters
+                gsi = []
+                if table_global_secondary_indexes is not None:
+                    logging.info("GSI (2): %s" % json.dumps(table_global_secondary_indexes))
+                    for index in table_global_secondary_indexes:
+                        rationalised_index = {}
+                        for key in [
+                            'IndexName',
+                            'KeySchema',
+                            'Projection',
+                            #'ProvisionedThroughput'
+                            ]:
+                            rationalised_index[key] = index[key]
+                        gsi.append(rationalised_index)
+                    logging.info("GSI (3): %s" % json.dumps(gsi))
+                lsi = []
+                if table_local_secondary_indexes is not None:
+                    logging.info("LSI (2): %s" % json.dumps(table_global_secondary_indexes))
+                    for index in table_local_secondary_indexes:
+                        rationalised_index = {}
+                        for key in [
+                            'IndexName',
+                            'KeySchema',
+                            'Projection',
+                            ]:
+                            rationalised_index[key] = index[key]
+                        lsi.append(rationalised_index)
+                    logging.info("LSI (3): %s" % json.dumps(lsi))
+
                 # Using the boto3 client for BillingMode parameter
                 dynamo3 = _get_aws_client(args.profile, args.region, "dynamodb")
                 dynamo3.create_table(
                     AttributeDefinitions=table_attribute_definitions,
                     TableName=table_name,
                     KeySchema=table_key_schema,
-                    LocalSecondaryIndexes=table_local_secondary_indexes,
-                    GlobalSecondaryIndexes=table_global_secondary_indexes,
+                    LocalSecondaryIndexes=lsi,
+                    GlobalSecondaryIndexes=gsi,
                     BillingMode='PAY_PER_REQUEST'
                 )
                 break
