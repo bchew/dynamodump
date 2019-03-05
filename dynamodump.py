@@ -421,11 +421,15 @@ def batch_write(conn, sleep_interval, table_name, put_requests):
                 break
             except boto.exception.JSONResponseError as e:
                 if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-                    logging.info("Limit exceeded, retrying batch_write_item " + len(request_items[table_name]) + " items to " + table_name + "..")
+                    logging.info("Limit exceeded, retrying batch_write_item " +
+                                 str(len(request_items[table_name])) + " items to " +
+                                 table_name + "..")
                     time.sleep(sleep_interval)
                 elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
                     logging.info("Control plane limit exceeded, "
-                                 "retrying batch_write_item " + len(request_items[table_name]) + " items to " + table_name + "..")
+                                 "retrying batch_write_item " +
+                                 str(len(request_items[table_name])) +
+                                 " items to " + table_name + "..")
                     time.sleep(sleep_interval)
                 else:
                     logging.exception(e)
