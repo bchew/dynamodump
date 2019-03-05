@@ -38,7 +38,7 @@ import boto.dynamodb2.layer1
 from boto.dynamodb2.exceptions import ProvisionedThroughputExceededException
 import botocore
 import boto3
-
+from botocore.exceptions import ClientError
 
 JSON_INDENT = 2
 AWS_SLEEP_INTERVAL = 10  # seconds
@@ -470,6 +470,10 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
     Update provisioned throughput on the table to provided values
     """
 
+    # don't do this if we are using demand provisioning
+    if args.demandProvisioning:
+        return
+
     logging.info("Updating " + table_name + " table read capacity to: " +
                  str(read_capacity) + ", write capacity to: " + str(write_capacity))
     while True:
@@ -491,6 +495,56 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
     if wait:
         wait_for_active_table(conn, table_name, "updated")
 
+def create_table(dynamo,
+                 table_attribute_definitions, table_name, table_key_schema,
+                 table_provisioned_throughput, table_local_secondary_indexes,
+                 table_global_secondary_indexes):
+    """
+    Create a table with the designated provisioning unless
+    demand provisioning has been indicated as an override,
+    in which case it is created with PAY_PER_REQUEST.
+    """
+    while True:
+        if args.demandProvisioning:
+            try:
+                # Using the boto3 client for BillingMode parameter
+                dynamo3 = _get_aws_client(args.profile, args.region, "dynamodb")
+                dynamo3.create_table(
+                    AttributeDefinitions=table_attribute_definitions,
+                    TableName=table_name,
+                    KeySchema=table_key_schema,
+                    LocalSecondaryIndexes=table_local_secondary_indexes,
+                    GlobalSecondaryIndexes=table_global_secondary_indexes,
+                    BillingMode='PAY_PER_REQUEST'
+                )
+                break
+
+            # Handle the https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html exceptions
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'LimitExceededException':
+                    logging.info("Limit exceeded, retrying creation of " + table_name + "..")
+                elif e.response['Error']['Code'] == 'ResourceInUseException':
+                    logging.info("Resource is not available yet, retrying creation of " +
+                                 table_name + "..")
+                else:
+                    logging.exception(e)
+                    sys.exit(1)
+        else:
+            try:
+                dynamo.create_table(table_attribute_definitions, table_name, table_key_schema,
+                                    table_provisioned_throughput, table_local_secondary_indexes,
+                                    table_global_secondary_indexes)
+                break
+            except boto.exception.JSONResponseError as e:
+                if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
+                    logging.info("Limit exceeded, retrying creation of " + table_name + "..")
+                elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
+                    logging.info("Control plane limit exceeded, retrying creation of " +
+                                 table_name + "..")
+                else:
+                    logging.exception(e)
+                    sys.exit(1)
+        time.sleep(sleep_interval)
 
 def do_empty(dynamo, table_name):
     """
@@ -520,23 +574,10 @@ def do_empty(dynamo, table_name):
 
     logging.info("Creating Table " + table_name)
 
-    while True:
-        try:
-            dynamo.create_table(table_attribute_definitions, table_name, table_key_schema,
-                                table_provisioned_throughput, table_local_secondary_indexes,
-                                table_global_secondary_indexes)
-            break
-        except boto.exception.JSONResponseError as e:
-            if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-                logging.info("Limit exceeded, retrying creation of " + table_name + "..")
-                time.sleep(sleep_interval)
-            elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-                logging.info("Control plane limit exceeded, retrying creation of " +
-                             table_name + "..")
-                time.sleep(sleep_interval)
-            else:
-                logging.exception(e)
-                sys.exit(1)
+    create_table(dynamo,
+                 table_attribute_definitions, table_name, table_key_schema,
+                 table_provisioned_throughput, table_local_secondary_indexes,
+                 table_global_secondary_indexes)
 
     # wait for table creation completion
     wait_for_active_table(dynamo, table_name, "created")
@@ -628,7 +669,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
             tableQueue.task_done()
 
 
-def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
+def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity, demand_provisioning):
     """
     Restore table
     """
@@ -684,23 +725,9 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         logging.info("Creating " + destination_table + " table with temp write capacity of " +
                      str(write_capacity))
 
-        while True:
-            try:
-                dynamo.create_table(table_attribute_definitions, table_table_name, table_key_schema,
-                                    table_provisioned_throughput, table_local_secondary_indexes,
-                                    table_global_secondary_indexes)
-                break
-            except boto.exception.JSONResponseError as e:
-                if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException":
-                    logging.info("Limit exceeded, retrying creation of " + destination_table + "..")
-                    time.sleep(sleep_interval)
-                elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-                    logging.info("Control plane limit exceeded, "
-                                 "retrying creation of " + destination_table + "..")
-                    time.sleep(sleep_interval)
-                else:
-                    logging.exception(e)
-                    sys.exit(1)
+        create_table(dynamo, table_attribute_definitions, table_table_name, table_key_schema,
+                     table_provisioned_throughput, table_local_secondary_indexes,
+                     table_global_secondary_indexes)
 
         # wait for table creation completion
         wait_for_active_table(dynamo, destination_table, "created")
@@ -868,6 +895,9 @@ def main():
                         default=str(DATA_DUMP))
     parser.add_argument("--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL "
                         "[optional]")
+    parser.add_argument("--demandProvisioning", action="store_true", default=False,
+                        help="Override source provisioning and use PAY_PER_REQUEST"
+                        "Demand provisioning instead [optional]")
     args = parser.parse_args()
 
     # set log level
