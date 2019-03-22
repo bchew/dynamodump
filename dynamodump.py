@@ -791,6 +791,221 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                      str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
+class DynamoDump(object):
+    
+    def __init__(self, args):
+        self.args = args
+
+        # Check to make sure that --dataOnly and --schemaOnly weren't simultaneously specified
+        if args.schemaOnly and args.dataOnly:
+            logging.info("Options --schemaOnly and --dataOnly are mutually exclusive.")
+            sys.exit(1)
+
+        self.conn = AWS_SLEEP_INTERVAL
+
+        # instantiate connection
+        if args.region == LOCAL_REGION:
+            self.conn = boto.dynamodb2.layer1.DynamoDBConnection(aws_access_key_id=args.accessKey,
+                                                            aws_secret_access_key=args.secretKey,
+                                                            host=args.host,
+                                                            port=int(args.port),
+                                                            is_secure=False)
+            self.sleep_interval = LOCAL_SLEEP_INTERVAL
+        elif not args.profile:
+            self.conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
+                                                    aws_secret_access_key=args.secretKey)
+        else:
+            self.conn = boto.dynamodb2.connect_to_region(args.region, profile_name=args.profile)
+           
+        # don't proceed if connection is not established
+        if not self.conn:
+            logging.info("Unable to establish connection with dynamodb")
+            sys.exit(1)
+
+        # set prefix separator
+        self.prefix_separator = DEFAULT_PREFIX_SEPARATOR
+        if args.prefixSeparator is not None:
+            self.prefix_separator = args.prefixSeparator
+        if args.noSeparator is True:
+            self.prefix_separator = None
+    
+        # TODO: Make these not global
+        global sleep_interval, start_time
+        sleep_interval = self.sleep_interval
+        start_time = datetime.datetime.now().replace(microsecond=0)
+        
+    def empty(self):
+        conn = self.conn
+        srcTable = self.args.srcTable
+
+        if srcTable.find('*') == -1:
+            do_empty(conn, srcTable)
+            return
+
+        matching_backup_tables = get_table_name_matches(conn, srcTable, self.prefix_separator)
+        logging.info("Found " + str(len(matching_backup_tables)) +
+                     " table(s) in DynamoDB host to empty: " +
+                     ", ".join(matching_backup_tables))
+
+        threads = []
+        for table in matching_backup_tables:
+            t = threading.Thread(target=do_empty, args=(conn, table))
+            threads.append(t)
+            t.start()
+            time.sleep(THREAD_START_DELAY)
+
+        for thread in threads:
+            thread.join()
+
+        logging.info("Empty of table(s) " + srcTable + " completed!")
+    
+    def backup(self):
+        conn = self.conn
+        args = self.args
+        prefix_separator = self.prefix_separator
+
+        matching_backup_tables = []
+        if args.tag:
+            # Use Boto3 to find tags.  Boto3 provides a paginator that makes searching ta
+            matching_backup_tables = get_table_name_by_tag(args.profile, args.region, args.tag)
+        elif args.srcTable.find("*") != -1:
+            matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
+        elif args.srcTable:
+            matching_backup_tables.append(args.srcTable)
+
+        if len(matching_backup_tables) == 0:
+            logging.info("No matching tables found.  Nothing to do.")
+            sys.exit(0)
+        else:
+            logging.info("Found " + str(len(matching_backup_tables)) +
+                         " table(s) in DynamoDB host to backup: " +
+                         ", ".join(matching_backup_tables))
+
+        try:
+            if args.srcTable.find("*") == -1:
+                do_backup(conn, args.read_capacity, tableQueue=None)
+            else:
+                do_backup(conn, args.read_capacity, matching_backup_tables)
+        except AttributeError:
+            # Didn't specify srcTable if we get here
+
+            q = Queue()
+            threads = []
+
+            for i in range(MAX_NUMBER_BACKUP_WORKERS):
+                t = threading.Thread(target=do_backup, args=(conn, args.readCapacity),
+                                     kwargs={"tableQueue": q})
+                t.start()
+                threads.append(t)
+                time.sleep(THREAD_START_DELAY)
+
+            for table in matching_backup_tables:
+                q.put(table)
+
+            q.join()
+
+            for i in range(MAX_NUMBER_BACKUP_WORKERS):
+                q.put(None)
+            for t in threads:
+                t.join()
+
+            try:
+                logging.info("Backup of table(s) " + args.srcTable + " completed!")
+            except (NameError, TypeError):
+                logging.info("Backup of table(s) " +
+                             ", ".join(matching_backup_tables) + " completed!")
+
+            if args.archive:
+                if args.tag:
+                    for table in matching_backup_tables:
+                        dump_path = args.dumpPath + os.sep + table
+                        did_archive, archive_file = do_archive(args.archive, dump_path)
+                        if args.bucket and did_archive:
+                            do_put_bucket_object(args.profile,
+                                                 args.region,
+                                                 args.bucket,
+                                                 archive_file)
+                else:
+                    did_archive, archive_file = do_archive(args.archive, args.dumpPath)
+
+                if args.bucket and did_archive:
+                    do_put_bucket_object(args.profile, args.region, args.bucket, archive_file)
+
+        pass
+    
+    def restore(self):
+        conn = self.conn
+        prefix_separator = self.prefix_separator
+        write_capacity = self.args.writeCapacity
+
+        if self.args.destTable is not None:
+            dest_table = self.args.destTable
+        else:
+            dest_table = self.args.srcTable
+
+        # If backups are in S3 download and extract the backup to use during restoration
+        if self.args.bucket:
+            do_get_s3_archive(self.args.profile, 
+                              self.args.region, 
+                              self.args.bucket, 
+                              self.args.srcTable, 
+                              self.args.archive)
+
+        if dest_table.find("*") != -1:
+            matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
+            delete_str = ": " if self.args.dataOnly else " to be deleted: "
+            logging.info(
+                "Found " + str(len(matching_destination_tables)) +
+                " table(s) in DynamoDB host" + delete_str +
+                ", ".join(matching_destination_tables))
+
+            threads = []
+            for table in matching_destination_tables:
+                t = threading.Thread(target=delete_table, args=(conn, sleep_interval, table))
+                threads.append(t)
+                t.start()
+                time.sleep(THREAD_START_DELAY)
+
+            for thread in threads:
+                thread.join()
+
+            matching_restore_tables = get_restore_table_matches(self.args.srcTable, prefix_separator)
+            logging.info(
+                "Found " + str(len(matching_restore_tables)) +
+                " table(s) in " + self.args.dumpPath + " to restore: " + ", ".join(
+                    matching_restore_tables))
+
+            threads = []
+            for source_table in matching_restore_tables:
+                if args.srcTable == "*":
+                    t = threading.Thread(target=do_restore,
+                                         args=(conn,
+                                               self.sleep_interval,
+                                               source_table,
+                                               source_table,
+                                               write_capacity))
+                else:
+                    t = threading.Thread(target=do_restore,
+                                         args=(conn, self.sleep_interval, source_table,
+                                               change_prefix(source_table,
+                                                             args.srcTable,
+                                                             dest_table,
+                                                             prefix_separator),
+                                               write_capacity))
+                threads.append(t)
+                t.start()
+                time.sleep(THREAD_START_DELAY)
+
+            for thread in threads:
+                thread.join()
+
+            logging.info("Restore of table(s) " + args.srcTable + " to " +
+                         dest_table + " completed!")
+        else:
+            delete_table(conn, self.sleep_interval, dest_table)
+            do_restore(conn, self.sleep_interval, self.args.srcTable, dest_table, write_capacity)
+
+
 def main():
     """
     Entrypoint to the script
@@ -861,193 +1076,15 @@ def main():
         log_level = args.log.upper()
     logging.basicConfig(level=getattr(logging, log_level))
 
-    # Check to make sure that --dataOnly and --schemaOnly weren't simultaneously specified
-    if args.schemaOnly and args.dataOnly:
-        logging.info("Options --schemaOnly and --dataOnly are mutually exclusive.")
-        sys.exit(1)
-
-    # instantiate connection
-    if args.region == LOCAL_REGION:
-        conn = boto.dynamodb2.layer1.DynamoDBConnection(aws_access_key_id=args.accessKey,
-                                                        aws_secret_access_key=args.secretKey,
-                                                        host=args.host,
-                                                        port=int(args.port),
-                                                        is_secure=False)
-        sleep_interval = LOCAL_SLEEP_INTERVAL
-    else:
-        if not args.profile:
-            conn = boto.dynamodb2.connect_to_region(args.region, aws_access_key_id=args.accessKey,
-                                                    aws_secret_access_key=args.secretKey)
-            sleep_interval = AWS_SLEEP_INTERVAL
-        else:
-            conn = boto.dynamodb2.connect_to_region(args.region, profile_name=args.profile)
-            sleep_interval = AWS_SLEEP_INTERVAL
-
-    # don't proceed if connection is not established
-    if not conn:
-        logging.info("Unable to establish connection with dynamodb")
-        sys.exit(1)
-
-    # set prefix separator
-    prefix_separator = DEFAULT_PREFIX_SEPARATOR
-    if args.prefixSeparator is not None:
-        prefix_separator = args.prefixSeparator
-    if args.noSeparator is True:
-        prefix_separator = None
+    dd = DynamoDump(args)
 
     # do backup/restore
-    start_time = datetime.datetime.now().replace(microsecond=0)
-    if args.mode == "backup":
-        matching_backup_tables = []
-        if args.tag:
-            # Use Boto3 to find tags.  Boto3 provides a paginator that makes searching ta
-            matching_backup_tables = get_table_name_by_tag(args.profile, args.region, args.tag)
-        elif args.srcTable.find("*") != -1:
-            matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
-        elif args.srcTable:
-            matching_backup_tables.append(args.srcTable)
-
-        if len(matching_backup_tables) == 0:
-            logging.info("No matching tables found.  Nothing to do.")
-            sys.exit(0)
-        else:
-            logging.info("Found " + str(len(matching_backup_tables)) +
-                         " table(s) in DynamoDB host to backup: " +
-                         ", ".join(matching_backup_tables))
-
-        try:
-            if args.srcTable.find("*") == -1:
-                do_backup(conn, args.read_capacity, tableQueue=None)
-            else:
-                do_backup(conn, args.read_capacity, matching_backup_tables)
-        except AttributeError:
-            # Didn't specify srcTable if we get here
-
-            q = Queue()
-            threads = []
-
-            for i in range(MAX_NUMBER_BACKUP_WORKERS):
-                t = threading.Thread(target=do_backup, args=(conn, args.readCapacity),
-                                     kwargs={"tableQueue": q})
-                t.start()
-                threads.append(t)
-                time.sleep(THREAD_START_DELAY)
-
-            for table in matching_backup_tables:
-                q.put(table)
-
-            q.join()
-
-            for i in range(MAX_NUMBER_BACKUP_WORKERS):
-                q.put(None)
-            for t in threads:
-                t.join()
-
-            try:
-                logging.info("Backup of table(s) " + args.srcTable + " completed!")
-            except (NameError, TypeError):
-                logging.info("Backup of table(s) " +
-                             ", ".join(matching_backup_tables) + " completed!")
-
-            if args.archive:
-                if args.tag:
-                    for table in matching_backup_tables:
-                        dump_path = args.dumpPath + os.sep + table
-                        did_archive, archive_file = do_archive(args.archive, dump_path)
-                        if args.bucket and did_archive:
-                            do_put_bucket_object(args.profile,
-                                                 args.region,
-                                                 args.bucket,
-                                                 archive_file)
-                else:
-                    did_archive, archive_file = do_archive(args.archive, args.dumpPath)
-
-                if args.bucket and did_archive:
-                    do_put_bucket_object(args.profile, args.region, args.bucket, archive_file)
-
-    elif args.mode == "restore":
-        if args.destTable is not None:
-            dest_table = args.destTable
-        else:
-            dest_table = args.srcTable
-
-        # If backups are in S3 download and extract the backup to use during restoration
-        if args.bucket:
-            do_get_s3_archive(args.profile, args.region, args.bucket, args.srcTable, args.archive)
-
-        if dest_table.find("*") != -1:
-            matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
-            delete_str = ": " if args.dataOnly else " to be deleted: "
-            logging.info(
-                "Found " + str(len(matching_destination_tables)) +
-                " table(s) in DynamoDB host" + delete_str +
-                ", ".join(matching_destination_tables))
-
-            threads = []
-            for table in matching_destination_tables:
-                t = threading.Thread(target=delete_table, args=(conn, sleep_interval, table))
-                threads.append(t)
-                t.start()
-                time.sleep(THREAD_START_DELAY)
-
-            for thread in threads:
-                thread.join()
-
-            matching_restore_tables = get_restore_table_matches(args.srcTable, prefix_separator)
-            logging.info(
-                "Found " + str(len(matching_restore_tables)) +
-                " table(s) in " + args.dumpPath + " to restore: " + ", ".join(
-                    matching_restore_tables))
-
-            threads = []
-            for source_table in matching_restore_tables:
-                if args.srcTable == "*":
-                    t = threading.Thread(target=do_restore,
-                                         args=(conn,
-                                               sleep_interval,
-                                               source_table,
-                                               source_table,
-                                               args.writeCapacity))
-                else:
-                    t = threading.Thread(target=do_restore,
-                                         args=(conn, sleep_interval, source_table,
-                                               change_prefix(source_table,
-                                                             args.srcTable,
-                                                             dest_table,
-                                                             prefix_separator),
-                                               args.writeCapacity))
-                threads.append(t)
-                t.start()
-                time.sleep(THREAD_START_DELAY)
-
-            for thread in threads:
-                thread.join()
-
-            logging.info("Restore of table(s) " + args.srcTable + " to " +
-                         dest_table + " completed!")
-        else:
-            delete_table(conn, sleep_interval, dest_table)
-            do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
-    elif args.mode == "empty":
-        if args.srcTable.find("*") != -1:
-            matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
-            logging.info("Found " + str(len(matching_backup_tables)) +
-                         " table(s) in DynamoDB host to empty: " +
-                         ", ".join(matching_backup_tables))
-
-            threads = []
-            for table in matching_backup_tables:
-                t = threading.Thread(target=do_empty, args=(conn, table))
-                threads.append(t)
-                t.start()
-                time.sleep(THREAD_START_DELAY)
-
-            for thread in threads:
-                thread.join()
-
-            logging.info("Empty of table(s) " + args.srcTable + " completed!")
-        else:
-            do_empty(conn, args.srcTable)
+    actions = {
+        'backup': dd.backup,
+        'restore': dd.restore,
+        'empty': dd.empty
+    }
+    actions[args.mode]()
 
 
 if __name__ == "__main__":
