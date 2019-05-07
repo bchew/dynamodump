@@ -779,6 +779,9 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                                 "Control plane limit exceeded, retrying updating throughput of"
                                 "GlobalSecondaryIndexes in " + destination_table + "..")
                             time.sleep(sleep_interval)
+                        elif (e.body['__type'] == 'com.amazon.coral.validate#ValidationException' and
+                              e.body['message'] == 'Nothing to update'):
+                            break
 
         # wait for table to become active
         wait_for_active_table(dynamo, destination_table, "active")
