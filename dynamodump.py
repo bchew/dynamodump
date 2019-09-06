@@ -5,6 +5,11 @@
     Suitable for DynamoDB usages of smaller data volume which do not warrant the usage of AWS
     Data Pipeline for backup/restores/empty.
 
+    python3 dynamodump.py -a tar -p sandbox -r eu-central-1 -m backup -t DDBTableGroupKey=backup -b database-backup2 // mit -s "backup*" wird eine dump.tar.bz2 auf S3 hochgeladen
+    - before backup all relevant tables need to be on privision not on demand
+    python3 dynamodump.py -a tar -p sandbox -r eu-central-1 -m restore -b database-backup2 -s "backup*" --prefixSeparator '.'
+    - not backing up for tags
+
     dynamodump supports local DynamoDB instances as well (tested with dynalite).
 """
 
@@ -188,40 +193,40 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     # Therefore, just get item from bucket based on table name since that's what we name the files.
     filename = None
     for d in contents["Contents"]:
-        if d["Key"] == "{}/{}.{}".format(args.dumpPath, table, archive_type):
+        if table.find("*") != -1 and table.split('*')[0] in d["Key"]:  # d[Key] = dump/backup.TokenSet.tar.bz2, und (args.dumpPath, table, archive_type) = dump,backup*,tar.bz2
             filename = d["Key"]
 
-    if not filename:
-        logging.exception("Unable to find file to restore from.  "
-                          "Confirm the name of the table you're restoring.")
-        sys.exit(1)
-
-    output_file = "/tmp/" + os.path.basename(filename)
-    logging.info("Downloading file " + filename + " to " + output_file)
-    s3.download_file(bucket, filename, output_file)
-
-    # Extract archive based on suffix
-    if tarfile.is_tarfile(output_file):
-        try:
-            logging.info("Extracting tar file...")
-            with tarfile.open(name=output_file, mode="r:bz2") as a:
-                a.extractall(path=".")
-        except tarfile.ReadError as e:
-            logging.exception("Error reading downloaded archive\n\n" + str(e))
+        if not filename:
+            logging.exception("Unable to find file to restore from.  "
+                              "Confirm the name of the table you're restoring.")
             sys.exit(1)
-        except tarfile.ExtractError as e:
-            # ExtractError is raised for non-fatal errors on extract method
-            logging.error("Error during extraction: " + str(e))
 
-    # Assuming zip file here since we're only supporting tar and zip at this time
-    else:
-        try:
-            logging.info("Extracting zip file...")
-            with zipfile.ZipFile(output_file, "r") as z:
-                z.extractall(path=".")
-        except zipfile.BadZipFile as e:
-            logging.exception("Problem extracting zip file\n\n" + str(e))
-            sys.exit(1)
+        output_file = "/tmp/" + os.path.basename(filename)
+        logging.info("Downloading file " + filename + " to " + output_file)
+        s3.download_file(bucket, filename, output_file)
+
+        # Extract archive based on suffix
+        if tarfile.is_tarfile(output_file):
+            try:
+                logging.info("Extracting tar file...")
+                with tarfile.open(name=output_file, mode="r:bz2") as a:
+                    a.extractall(path=".")
+            except tarfile.ReadError as e:
+                logging.exception("Error reading downloaded archive\n\n" + str(e))
+                sys.exit(1)
+            except tarfile.ExtractError as e:
+                # ExtractError is raised for non-fatal errors on extract method
+                logging.error("Error during extraction: " + str(e))
+
+        # Assuming zip file here since we're only supporting tar and zip at this time
+        else:
+            try:
+                logging.info("Extracting zip file...")
+                with zipfile.ZipFile(output_file, "r") as z:
+                    z.extractall(path=".")
+            except zipfile.BadZipFile as e:
+                logging.exception("Problem extracting zip file\n\n" + str(e))
+                sys.exit(1)
 
 
 def do_archive(archive_type, dump_path):
