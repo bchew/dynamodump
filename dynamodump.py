@@ -697,6 +697,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                                           original_read_capacity,
                                           write_capacity,
                                           False)
+
     if not args.schemaOnly:
         # read data files
         logging.info("Restoring data for " + destination_table + " table..")
