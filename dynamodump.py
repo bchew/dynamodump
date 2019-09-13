@@ -693,11 +693,10 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         # update provisioned capacity
         if int(write_capacity) > original_write_capacity:
             update_provisioned_throughput(dynamo,
-                                        destination_table,
-                                        original_read_capacity,
-                                        write_capacity,
-                                        False)
-
+                                          destination_table,
+                                          original_read_capacity,
+                                          write_capacity,
+                                          False)
     if not args.schemaOnly:
         # read data files
         logging.info("Restoring data for " + destination_table + " table..")
