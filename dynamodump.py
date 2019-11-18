@@ -632,6 +632,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
             logging.info("Cannot find \"%s/%s\" directory containing dump files!"
                          % (CURRENT_WORKING_DIR, source_table))
             sys.exit(1)
+    if not input("All tables that have the same name will be overwrittent. Please type SURE to continue.").strip()[:1] == "SURE": sys.exit(1)
     table_data = json.load(open(dump_data_path + os.sep + source_table + os.sep + SCHEMA_FILE))
     table = table_data["Table"]
     table_attribute_definitions = table["AttributeDefinitions"]
@@ -976,6 +977,7 @@ def main():
             do_get_s3_archive(args.profile, args.region, args.bucket, args.srcTable, args.archive)
 
         if dest_table.find("*") != -1:
+            if not input("Your selected tables will be deleted and then restored with the dumped data. Please type SURE to continue.").strip()[:1] == "SURE": sys.exit(1)
             matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
             delete_str = ": " if args.dataOnly else " to be deleted: "
             logging.info(
@@ -1026,9 +1028,11 @@ def main():
             logging.info("Restore of table(s) " + args.srcTable + " to " +
                          dest_table + " completed!")
         else:
+            if not input("Your selected tables will be emptied and then restored with the dumped data. Please type SURE to continue.").strip()[:1] == "SURE": sys.exit(1)
             delete_table(conn, sleep_interval, dest_table)
             do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
     elif args.mode == "empty":
+        if not input("Your selected tables will be emptied. Please type SURE to continue.").strip()[:1] == "SURE": sys.exit(1)
         if args.srcTable.find("*") != -1:
             matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
             logging.info("Found " + str(len(matching_backup_tables)) +
