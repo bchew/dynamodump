@@ -9,6 +9,8 @@ Suitable for DynamoDB usages of smaller data volume which do not warrant the usa
 
 dynamodump supports local DynamoDB instances as well (tested with [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html)).
 
+For more complex needs, [AWS Backup](https://aws.amazon.com/backup/) support DynamoDB backups.
+
 Usage
 -----
 ```
