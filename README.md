@@ -102,7 +102,16 @@ different separator):
 python dynamodump.py -m backup -r us-west-1 -s production*
 
 python dynamodump.py -m restore -r us-west-1 -s production*
+
+...or
+
+# backup those tables which are created by appSync
+python dynamodump.py -m backup -r us-east-1 -s "*-og2r52jvovfudb276njs7hv5r4-dev"
+
+# restore local data to aws dynamoDB
+python dynamodump.py -m restore -r us-east-1 -s "*-og2r52jvovfudb276njs7hv5r4-dev" -d "*-nvjhpwuo4vh4vckedgja2wqtwi-sandboxii" --dataOnly --skipThroughputUpdate
 ```
+
 The above, but between different environments (e.g. production-* tables to development-* tables):
 ```
 python dynamodump.py -m backup -r us-west-1 -s production*

@@ -327,23 +327,30 @@ def get_restore_table_matches(table_name_wildcard, separator):
                 matching_tables.append(dir_name)
         elif dir_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
             matching_tables.append(dir_name)
+        elif dir_name.split(separator, 1)[0] == dir_name.split(table_name_wildcard.split("*", 1)[1])[0]:
+            matching_tables.append(dir_name)
 
     return matching_tables
 
 
-def change_prefix(source_table_name, source_wildcard, destination_wildcard, separator):
+def change_destination_tablename(source_table_name, source_wildcard, destination_wildcard, separator):
     """
     Update prefix used for searching tables
     """
 
     source_prefix = source_wildcard.split("*", 1)[0]
+    source_surffix = source_wildcard.split("*", 1)[1]
     destination_prefix = destination_wildcard.split("*", 1)[0]
+    destination_surffix = destination_wildcard.split("*", 1)[1]
     if separator == "":
         if re.sub(r"([A-Z])", r" \1", source_table_name).split()[0] == source_prefix:
             return destination_prefix + re.sub(r"([A-Z])", r" \1", source_table_name)\
                 .split(" ", 1)[1].replace(" ", "")
-    if source_table_name.split(separator, 1)[0] == source_prefix:
+    if source_table_name.split(separator, 1)[0] == source_prefix and source_prefix != '':
         return destination_prefix + separator + source_table_name.split(separator, 1)[1]
+    if source_surffix != '' and destination_surffix != '':
+        return source_table_name.split(source_surffix)[0] + destination_surffix
+    raise Exception('Can not found destinaton table!')
 
 
 def delete_table(conn, sleep_interval, table_name):
@@ -689,7 +696,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
         # wait for table creation completion
         wait_for_active_table(dynamo, destination_table, "created")
-    else:
+    elif not args.skipThroughputUpdate:
         # update provisioned capacity
         if int(write_capacity) > original_write_capacity:
             update_provisioned_throughput(dynamo,
@@ -1010,11 +1017,14 @@ def main():
                                                args.writeCapacity))
                 else:
                     t = threading.Thread(target=do_restore,
-                                         args=(conn, sleep_interval, source_table,
-                                               change_prefix(source_table,
-                                                             args.srcTable,
-                                                             dest_table,
-                                                             prefix_separator),
+                                         args=(conn,
+                                               sleep_interval,
+                                               source_table,
+                                               change_destination_tablename(
+                                                   source_table,
+                                                   args.srcTable,
+                                                   dest_table,
+                                                   prefix_separator),
                                                args.writeCapacity))
                 threads.append(t)
                 t.start()
