@@ -79,8 +79,7 @@ def _get_aws_client(profile, region, service):
             logging.exception("Timed out connecting to metadata service.\n\n")
             sys.exit(1)
         except HTTPError as e:
-            logging.exception("Error determining region used for AWS client.  Typo in code?\n\n" +
-                              str(e))
+            logging.exception("Error determining region used for AWS client.  Typo in code?\n\n" + str(e))
             sys.exit(1)
 
     if profile:
@@ -373,8 +372,7 @@ def delete_table(conn, sleep_interval, table_name):
                     logging.info("Limit exceeded, retrying deletion of " + table_name + "..")
                     time.sleep(sleep_interval)
                 elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-                    logging.info("Control plane limit exceeded, retrying deletion of " +
-                                 table_name + "..")
+                    logging.info("Control plane limit exceeded, retrying deletion of " + table_name + "..")
                     time.sleep(sleep_interval)
                 elif e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceInUseException":
                     logging.info(table_name + " table is being deleted..")
@@ -387,8 +385,7 @@ def delete_table(conn, sleep_interval, table_name):
         if table_exist:
             try:
                 while True:
-                    logging.info("Waiting for " + table_name + " table to be deleted.. [" +
-                                 conn.describe_table(table_name)["Table"]["TableStatus"] + "]")
+                    logging.info("Waiting for " + table_name + " table to be deleted.. [" + conn.describe_table(table_name)["Table"]["TableStatus"] + "]")
                     time.sleep(sleep_interval)
             except boto.exception.JSONResponseError as e:
                 if e.body["__type"] == "com.amazonaws.dynamodb.v20120810#ResourceNotFoundException":
@@ -428,16 +425,13 @@ def batch_write(conn, sleep_interval, table_name, put_requests):
         if len(unprocessed_items) == 0:
             break
         if len(unprocessed_items) > 0 and i <= MAX_RETRY:
-            logging.debug(str(len(unprocessed_items)) +
-                          " unprocessed items, retrying after %s seconds.. [%s/%s]"
-                          % (str(sleep), str(i), str(MAX_RETRY)))
+            logging.debug(str(len(unprocessed_items)) + " unprocessed items, retrying after %s seconds.. [%s/%s]" % (str(sleep), str(i), str(MAX_RETRY)))
             request_items = unprocessed_items
             time.sleep(sleep)
             sleep += sleep_interval
             i += 1
         else:
-            logging.info("Max retries reached, failed to processed batch write: " +
-                         json.dumps(unprocessed_items, indent=JSON_INDENT))
+            logging.info("Max retries reached, failed to processed batch write: " + json.dumps(unprocessed_items, indent=JSON_INDENT))
             logging.info("Ignoring and continuing..")
             break
 
@@ -449,8 +443,7 @@ def wait_for_active_table(conn, table_name, verb):
 
     while True:
         if conn.describe_table(table_name)["Table"]["TableStatus"] != "ACTIVE":
-            logging.info("Waiting for " + table_name + " table to be " + verb + ".. [" +
-                         conn.describe_table(table_name)["Table"]["TableStatus"] + "]")
+            logging.info("Waiting for " + table_name + " table to be " + verb + ".. [" + conn.describe_table(table_name)["Table"]["TableStatus"] + "]")
             time.sleep(sleep_interval)
         else:
             logging.info(table_name + " " + verb + ".")
@@ -462,8 +455,7 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
     Update provisioned throughput on the table to provided values
     """
 
-    logging.info("Updating " + table_name + " table read capacity to: " +
-                 str(read_capacity) + ", write capacity to: " + str(write_capacity))
+    logging.info("Updating " + table_name + " table read capacity to: " + str(read_capacity) + ", write capacity to: " + str(write_capacity))
     while True:
         try:
             conn.update_table(table_name,
@@ -523,8 +515,7 @@ def do_empty(dynamo, table_name):
                 logging.info("Limit exceeded, retrying creation of " + table_name + "..")
                 time.sleep(sleep_interval)
             elif e.body["__type"] == "com.amazon.coral.availability#ThrottlingException":
-                logging.info("Control plane limit exceeded, retrying creation of " +
-                             table_name + "..")
+                logging.info("Control plane limit exceeded, retrying creation of " + table_name + "..")
                 time.sleep(sleep_interval)
             else:
                 logging.exception(e)
@@ -588,13 +579,11 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
                         scanned_table = dynamo.scan(table_name,
                                                     exclusive_start_key=last_evaluated_key)
                     except ProvisionedThroughputExceededException:
-                        logging.error("EXCEEDED THROUGHPUT ON TABLE " +
-                                      table_name + ".  BACKUP FOR IT IS USELESS.")
+                        logging.error("EXCEEDED THROUGHPUT ON TABLE " + table_name + ".  BACKUP FOR IT IS USELESS.")
                         tableQueue.task_done()
 
                     f = open(
-                        args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep +
-                        str(i).zfill(4) + ".json", "w+"
+                        args.dumpPath + os.sep + table_name + os.sep + DATA_DIR + os.sep + str(i).zfill(4) + ".json", "w+"
                     )
                     f.write(json.dumps(scanned_table, indent=JSON_INDENT))
                     f.close()
@@ -673,8 +662,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
     if not args.dataOnly:
 
-        logging.info("Creating " + destination_table + " table with temp write capacity of " +
-                     str(write_capacity))
+        logging.info("Creating " + destination_table + " table with temp write capacity of " + str(write_capacity))
 
         while True:
             try:
@@ -708,8 +696,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
     if not args.schemaOnly:
         # read data files
         logging.info("Restoring data for " + destination_table + " table..")
-        data_file_list = os.listdir(dump_data_path + os.sep + source_table +
-                                    os.sep + DATA_DIR + os.sep)
+        data_file_list = os.listdir(dump_data_path + os.sep + source_table + os.sep + DATA_DIR + os.sep)
         data_file_list.sort()
 
         for data_file in data_file_list:
@@ -729,8 +716,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
                 # flush every MAX_BATCH_WRITE
                 if len(put_requests) == MAX_BATCH_WRITE:
-                    logging.debug("Writing next " + str(MAX_BATCH_WRITE) +
-                                  " items to " + destination_table + "..")
+                    logging.debug("Writing next " + str(MAX_BATCH_WRITE) + " items to " + destination_table + "..")
                     batch_write(dynamo, BATCH_WRITE_SLEEP_INTERVAL, destination_table, put_requests)
                     del put_requests[:]
 
@@ -766,22 +752,19 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                             }
                         })
 
-                logging.info("Updating " + destination_table +
-                             " global secondary indexes write capacities as necessary..")
+                logging.info("Updating " + destination_table + " global secondary indexes write capacities as necessary..")
                 while True:
                     try:
                         dynamo.update_table(destination_table,
                                             global_secondary_index_updates=gsi_data)
                         break
                     except boto.exception.JSONResponseError as e:
-                        if (e.body["__type"] ==
-                                "com.amazonaws.dynamodb.v20120810#LimitExceededException"):
+                        if (e.body["__type"] == "com.amazonaws.dynamodb.v20120810#LimitExceededException"):
                             logging.info(
                                 "Limit exceeded, retrying updating throughput of"
                                 "GlobalSecondaryIndexes in " + destination_table + "..")
                             time.sleep(sleep_interval)
-                        elif (e.body["__type"] ==
-                              "com.amazon.coral.availability#ThrottlingException"):
+                        elif (e.body["__type"] == "com.amazon.coral.availability#ThrottlingException"):
                             logging.info(
                                 "Control plane limit exceeded, retrying updating throughput of"
                                 "GlobalSecondaryIndexes in " + destination_table + "..")
@@ -790,12 +773,9 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         # wait for table to become active
         wait_for_active_table(dynamo, destination_table, "active")
 
-        logging.info("Restore for " + source_table + " to " + destination_table +
-                     " table completed. Time taken: " + str(
-                         datetime.datetime.now().replace(microsecond=0) - start_time))
+        logging.info("Restore for " + source_table + " to " + destination_table + " table completed. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
     else:
-        logging.info("Empty schema of " + source_table + " table created. Time taken: " +
-                     str(datetime.datetime.now().replace(microsecond=0) - start_time))
+        logging.info("Empty schema of " + source_table + " table created. Time taken: " + str(datetime.datetime.now().replace(microsecond=0) - start_time))
 
 
 def main():
@@ -814,8 +794,7 @@ def main():
     parser.add_argument("-m", "--mode", help="Operation to perform",
                         choices=["backup", "restore", "empty"])
     parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. "
-                        "Can use AWS_DEFAULT_REGION for local testing.  Use '" +
-                        LOCAL_REGION + "' for local DynamoDB testing")
+                        "Can use AWS_DEFAULT_REGION for local testing.  Use '" + LOCAL_REGION + "' for local DynamoDB testing")
     parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
     parser.add_argument("--port", help="Port of local DynamoDB [required only for local]")
     parser.add_argument("--accessKey", help="Access key of local DynamoDB "
@@ -918,9 +897,7 @@ def main():
             logging.info("No matching tables found.  Nothing to do.")
             sys.exit(0)
         else:
-            logging.info("Found " + str(len(matching_backup_tables)) +
-                         " table(s) in DynamoDB host to backup: " +
-                         ", ".join(matching_backup_tables))
+            logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to backup: " + ", ".join(matching_backup_tables))
 
         try:
             if args.srcTable.find("*") == -1:
@@ -953,8 +930,7 @@ def main():
             try:
                 logging.info("Backup of table(s) " + args.srcTable + " completed!")
             except (NameError, TypeError):
-                logging.info("Backup of table(s) " +
-                             ", ".join(matching_backup_tables) + " completed!")
+                logging.info("Backup of table(s) " + ", ".join(matching_backup_tables) + " completed!")
 
             if args.archive:
                 if args.tag:
@@ -986,9 +962,7 @@ def main():
             matching_destination_tables = get_table_name_matches(conn, dest_table, prefix_separator)
             delete_str = ": " if args.dataOnly else " to be deleted: "
             logging.info(
-                "Found " + str(len(matching_destination_tables)) +
-                " table(s) in DynamoDB host" + delete_str +
-                ", ".join(matching_destination_tables))
+                "Found " + str(len(matching_destination_tables)) + " table(s) in DynamoDB host" + delete_str + ", ".join(matching_destination_tables))
 
             threads = []
             for table in matching_destination_tables:
@@ -1002,8 +976,7 @@ def main():
 
             matching_restore_tables = get_restore_table_matches(args.srcTable, prefix_separator)
             logging.info(
-                "Found " + str(len(matching_restore_tables)) +
-                " table(s) in " + args.dumpPath + " to restore: " + ", ".join(
+                "Found " + str(len(matching_restore_tables)) + " table(s) in " + args.dumpPath + " to restore: " + ", ".join(
                     matching_restore_tables))
 
             threads = []
@@ -1033,17 +1006,14 @@ def main():
             for thread in threads:
                 thread.join()
 
-            logging.info("Restore of table(s) " + args.srcTable + " to " +
-                         dest_table + " completed!")
+            logging.info("Restore of table(s) " + args.srcTable + " to " + dest_table + " completed!")
         else:
             delete_table(conn, sleep_interval, dest_table)
             do_restore(conn, sleep_interval, args.srcTable, dest_table, args.writeCapacity)
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
             matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
-            logging.info("Found " + str(len(matching_backup_tables)) +
-                         " table(s) in DynamoDB host to empty: " +
-                         ", ".join(matching_backup_tables))
+            logging.info("Found " + str(len(matching_backup_tables)) + " table(s) in DynamoDB host to empty: " + ", ".join(matching_backup_tables))
 
             threads = []
             for table in matching_backup_tables:
