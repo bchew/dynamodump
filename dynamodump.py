@@ -689,7 +689,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
         # wait for table creation completion
         wait_for_active_table(dynamo, destination_table, "created")
-    else:
+    elif not args.skipThroughputUpdate:
         # update provisioned capacity
         if int(write_capacity) > original_write_capacity:
             update_provisioned_throughput(dynamo,
