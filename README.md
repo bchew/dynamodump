@@ -1,7 +1,7 @@
 dynamodump
 ==========
 
-[![Buildstatus](https://travis-ci.org/bchew/dynamodump.svg)](https://travis-ci.org/bchew/dynamodump) [![DockerBuildstatus](https://img.shields.io/docker/build/bchew/dynamodump.svg)](https://hub.docker.com/r/bchew/dynamodump/)
+![Build Status](https://github.com/bchew/dynamodump/workflows/Python%20package/badge.svg) [![DockerBuildstatus](https://img.shields.io/docker/build/bchew/dynamodump.svg)](https://hub.docker.com/r/bchew/dynamodump/)
 
 Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
