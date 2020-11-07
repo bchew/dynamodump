@@ -178,6 +178,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     try:
         contents = s3.list_objects_v2(
             Bucket=bucket,
+            Prefix=args.dumpPath
         )
     except botocore.exceptions.ClientError as e:
         logging.exception("Issue listing contents of bucket " + bucket + "\n\n" + str(e))
@@ -187,7 +188,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     # Therefore, just get item from bucket based on table name since that's what we name the files.
     filename = None
     for d in contents["Contents"]:
-        if d["Key"] == "dump/{}.{}".format(table, archive_type):
+        if d["Key"] == "{}/{}.{}".format(args.dumpPath, table, archive_type):
             filename = d["Key"]
 
     if not filename:
@@ -691,7 +692,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
         # wait for table creation completion
         wait_for_active_table(dynamo, destination_table, "created")
-    else:
+    elif not args.skipThroughputUpdate:
         # update provisioned capacity
         if int(write_capacity) > original_write_capacity:
             update_provisioned_throughput(dynamo,
