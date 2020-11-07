@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 """
     Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
 
@@ -15,7 +15,6 @@ import logging
 import os
 import shutil
 import threading
-import Queue
 import datetime
 import errno
 import sys
@@ -23,7 +22,17 @@ import time
 import re
 import zipfile
 import tarfile
-import urllib2
+
+try:
+    from queue import Queue
+except ImportError:
+    from Queue import Queue
+
+try:
+    from urllib.request import urlopen
+    from urllib.error import URLError, HTTPError
+except ImportError:
+    from urllib2 import urlopen, URLError, HTTPError
 
 import boto.dynamodb2.layer1
 from boto.dynamodb2.exceptions import ProvisionedThroughputExceededException
@@ -63,13 +72,13 @@ def _get_aws_client(profile, region, service):
     # Fallback to querying metadata for region
     if not aws_region:
         try:
-            azone = urllib2.urlopen(METADATA_URL + "placement/availability-zone",
-                                    data=None, timeout=5).read().decode()
+            azone = urlopen(METADATA_URL + "placement/availability-zone",
+                            data=None, timeout=5).read().decode()
             aws_region = azone[:-1]
-        except urllib2.URLError:
+        except URLError:
             logging.exception("Timed out connecting to metadata service.\n\n")
             sys.exit(1)
-        except urllib2.HTTPError as e:
+        except HTTPError as e:
             logging.exception("Error determining region used for AWS client.  Typo in code?\n\n" +
                               str(e))
             sys.exit(1)
@@ -169,6 +178,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     try:
         contents = s3.list_objects_v2(
             Bucket=bucket,
+            Prefix=args.dumpPath
         )
     except botocore.exceptions.ClientError as e:
         logging.exception("Issue listing contents of bucket " + bucket + "\n\n" + str(e))
@@ -178,7 +188,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     # Therefore, just get item from bucket based on table name since that's what we name the files.
     filename = None
     for d in contents["Contents"]:
-        if d["Key"] == "dump/{}.{}".format(table, archive_type):
+        if d["Key"] == "{}/{}.{}".format(args.dumpPath, table, archive_type):
             filename = d["Key"]
 
     if not filename:
@@ -683,7 +693,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
         # wait for table creation completion
         wait_for_active_table(dynamo, destination_table, "created")
-    else:
+    elif not args.skipThroughputUpdate:
         # update provisioned capacity
         if int(write_capacity) > original_write_capacity:
             update_provisioned_throughput(dynamo,
@@ -917,7 +927,7 @@ def main():
         except AttributeError:
             # Didn't specify srcTable if we get here
 
-            q = Queue.Queue()
+            q = Queue()
             threads = []
 
             for i in range(MAX_NUMBER_BACKUP_WORKERS):
