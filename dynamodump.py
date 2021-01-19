@@ -792,7 +792,7 @@ def main():
     parser.add_argument("-b", "--bucket", help="S3 bucket in which to store or retrieve backups."
                         "[must already exist]")
     parser.add_argument("-m", "--mode", help="Operation to perform",
-                        choices=["backup", "restore", "empty"])
+                        choices=["backup", "restore", "empty", "truncate"])
     parser.add_argument("-r", "--region", help="AWS region to use, e.g. 'us-west-1'. "
                         "Can use AWS_DEFAULT_REGION for local testing.  Use '" + LOCAL_REGION + "' for local DynamoDB testing")
     parser.add_argument("--host", help="Host of local DynamoDB [required only for local]")
@@ -1028,7 +1028,42 @@ def main():
             logging.info("Empty of table(s) " + args.srcTable + " completed!")
         else:
             do_empty(conn, args.srcTable)
+    elif args.mode == "truncate":
+        dynamo = boto3.resource('dynamodb')
+        def truncateTable(tableName):
+            table = dynamo.Table(tableName)
 
+            #get the table keys
+            tableKeyNames = [key.get("AttributeName") for key in table.key_schema]
+
+            """
+            NOTE: there are reserved attributes for key names, please see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html
+            if a hash or range key is in the reserved word list, you will need to use the ExpressionAttributeNames parameter
+            described at https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#DynamoDB.Table.scan
+            """
+
+            #Only retrieve the keys for each item in the table (minimize data transfer)
+            ProjectionExpression = ", ".join(tableKeyNames)
+
+            response = table.scan(ProjectionExpression=ProjectionExpression)
+            data = response.get('Items')
+
+            while 'LastEvaluatedKey' in response:
+                response = table.scan(
+                    ProjectionExpression=ProjectionExpression, 
+                    ExclusiveStartKey=response['LastEvaluatedKey'])
+                data.extend(response['Items'])
+
+            with table.batch_writer() as batch:
+                for each in data:
+                    batch.delete_item(
+                        Key={key: each[key] for key in tableKeyNames}
+                    )
+
+        if args.srcTable.find("*") != -1:
+            matching_backup_tables = get_table_name_matches(conn, args.srcTable, prefix_separator)
+            for table in matching_backup_tables:
+                truncateTable(table)
 
 if __name__ == "__main__":
     main()

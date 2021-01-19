@@ -106,10 +106,13 @@ python dynamodump.py -m restore -r us-west-1 -s production*
 ...or
 
 # backup those tables which are created by appSync
-python dynamodump.py -m backup -r us-east-1 -s "*-og2r52jvovfudb276njs7hv5r4-dev"
+python dynamodump.py -m backup -r us-east-1 -s "*-senpxvrlnjacppwkdfnlbeh3yi-sandbox"
 
 # restore local data to aws dynamoDB
-python dynamodump.py -m restore -r us-east-1 -s "*-og2r52jvovfudb276njs7hv5r4-dev" -d "*-nvjhpwuo4vh4vckedgja2wqtwi-sandboxii" --dataOnly --skipThroughputUpdate
+python dynamodump.py -m restore -r us-east-1 -s "*-og2r52jvovfudb276njs7hv5r4-dev" -d "*-senpxvrlnjacppwkdfnlbeh3yi-sandbox" --dataOnly --skipThroughputUpdate
+
+# truncate tables which are created by appSync
+python dynamodump.py -m truncate -r us-east-1 -s "*-senpxvrlnjacppwkdfnlbeh3yi-sandbox"
 ```
 
 The above, but between different environments (e.g. production-* tables to development-* tables):
