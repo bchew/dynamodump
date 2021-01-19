@@ -108,7 +108,7 @@ python dynamodump.py -m restore -r us-west-1 -s production*
 # backup those tables which are created by appSync
 python dynamodump.py -m backup -r us-east-1 -s "*-senpxvrlnjacppwkdfnlbeh3yi-sandbox"
 
-# restore local data to aws dynamoDB
+# restore local data to aws dynamoDB. NOTE: This could be executed repeatly, because there is primaryKey inside backup data.
 python dynamodump.py -m restore -r us-east-1 -s "*-og2r52jvovfudb276njs7hv5r4-dev" -d "*-senpxvrlnjacppwkdfnlbeh3yi-sandbox" --dataOnly --skipThroughputUpdate
 
 # truncate tables which are created by appSync
