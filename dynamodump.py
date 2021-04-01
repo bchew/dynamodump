@@ -307,15 +307,20 @@ def get_restore_table_matches(table_name_wildcard, separator):
     try:
         dir_list = os.listdir("./" + args.dumpPath)
     except OSError:
-        logging.info("Cannot find \"./%s\", Now trying current working directory.."
+        logging.info("Cannot find \"./%s\", Now trying user provided absolute dump path.."
                      % args.dumpPath)
-        dump_data_path = CURRENT_WORKING_DIR
         try:
-            dir_list = os.listdir(dump_data_path)
+            dir_list = os.listdir(args.dumpPath)
         except OSError:
-            logging.info("Cannot find \"%s\" directory containing dump files!"
+            logging.info("Cannot find \"%s\", Now trying current working directory.."
+                     % args.dumpPath)
+            dump_data_path = CURRENT_WORKING_DIR
+            try:
+                dir_list = os.listdir(dump_data_path)
+            except OSError:
+                logging.info("Cannot find \"%s\" directory containing dump files!"
                          % dump_data_path)
-            sys.exit(1)
+                sys.exit(1)
 
     for dir_name in dir_list:
         if table_name_wildcard == "*":
