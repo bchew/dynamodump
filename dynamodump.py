@@ -462,7 +462,7 @@ def wait_for_active_table(conn, table_name, verb):
     while True:
         if conn.describe_table(TableName=table_name)["Table"]["TableStatus"] != "ACTIVE":
             logging.info("Waiting for " + table_name + " table to be " + verb + ".. [" +
-                         conn.describe_table(table_name)["Table"]["TableStatus"] + "]")
+                         conn.describe_table(TableName=table_name)["Table"]["TableStatus"] + "]")
             time.sleep(sleep_interval)
         else:
             logging.info(table_name + " " + verb + ".")
