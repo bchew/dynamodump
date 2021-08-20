@@ -36,10 +36,6 @@ except ImportError:
 
 import boto3
 
-from boto3_type_annotations.dynamodb import Client as DynamodbClient
-from boto3_type_annotations.sts import Client as StsClient
-from boto3_type_annotations.s3 import Client as S3Client
-
 JSON_INDENT = 2
 AWS_SLEEP_INTERVAL = 10  # seconds
 LOCAL_SLEEP_INTERVAL = 1  # seconds
@@ -118,8 +114,8 @@ def get_table_name_by_tag(profile, region, tag):
 
     matching_tables = []
     all_tables = []
-    sts: StsClient = _get_aws_client(profile=profile, region=region, service="sts")
-    dynamo: DynamodbClient = _get_aws_client(profile=profile, region=region, service="dynamodb")
+    sts = _get_aws_client(profile=profile, region=region, service="sts")
+    dynamo = _get_aws_client(profile=profile, region=region, service="dynamodb")
     account_number = sts.get_caller_identity().get("Account")
     paginator = dynamo.get_paginator(operation_name="list_tables")
     tag_key = tag.split("=")[0]
@@ -155,7 +151,7 @@ def do_put_bucket_object(profile, region, bucket, bucket_object):
     bucket_object is file to be uploaded
     """
 
-    s3: S3Client = _get_aws_client(profile=profile, region=region, service="s3")
+    s3 = _get_aws_client(profile=profile, region=region, service="s3")
     logging.info("Uploading backup to S3 bucket " + bucket)
     try:
         s3.upload_file(bucket_object, bucket, bucket_object,
@@ -175,7 +171,7 @@ def do_get_s3_archive(profile, region, bucket, table, archive):
     filename is args.dumpPath.  File would be "args.dumpPath" with suffix .tar.bz2 or .zip
     """
 
-    s3: S3Client = _get_aws_client(profile=profile, region=region, service="s3")
+    s3 = _get_aws_client(profile=profile, region=region, service="s3")
 
     if archive:
         if archive == "tar":
@@ -367,7 +363,7 @@ def change_prefix(source_table_name, source_wildcard, destination_wildcard, sepa
         return destination_prefix + separator + source_table_name.split(separator, 1)[1]
 
 
-def delete_table(conn: DynamodbClient, sleep_interval: int, table_name: str):
+def delete_table(conn, sleep_interval: int, table_name: str):
     """
     Delete table table_name
     """
@@ -495,7 +491,7 @@ def update_provisioned_throughput(conn, table_name, read_capacity, write_capacit
         wait_for_active_table(conn, table_name, "updated")
 
 
-def do_empty(dynamo: DynamodbClient, table_name):
+def do_empty(dynamo, table_name):
     """
     Empty table named table_name
     """
@@ -647,7 +643,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
             tableQueue.task_done()
 
 
-def do_restore(dynamo: DynamodbClient, sleep_interval, source_table, destination_table, write_capacity):
+def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
     """
     Restore table
     """
@@ -909,7 +905,7 @@ def main():
 
     # instantiate connection
     if args.region == LOCAL_REGION:
-        conn: DynamodbClient = _get_aws_client(
+        conn = _get_aws_client(
             service='dynamodb',
             access_key=args.accessKey,
             secret_key=args.secretKey,
@@ -918,7 +914,7 @@ def main():
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
         if not args.profile:
-            conn: DynamodbClient = _get_aws_client(
+            conn = _get_aws_client(
                 service='dynamodb',
                 access_key=args.accessKey,
                 secret_key=args.secretKey,
@@ -926,7 +922,7 @@ def main():
             )
             sleep_interval = AWS_SLEEP_INTERVAL
         else:
-            conn: DynamodbClient = _get_aws_client(
+            conn = _get_aws_client(
                 service='dynamodb',
                 profile=args.profile,
                 region=args.region,
