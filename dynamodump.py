@@ -17,6 +17,7 @@ import shutil
 import threading
 import datetime
 import errno
+from six.moves import input
 import sys
 import time
 import re
@@ -369,6 +370,11 @@ def delete_table(conn, sleep_interval: int, table_name: str):
     """
 
     if not args.dataOnly:
+        if not args.noConfirm:
+            confirmation = input("About to delete table {}. Type 'yes' to continue: ".format(table_name))
+            if confirmation != 'yes':
+                logging.warn('Confirmation not received. Stopping.')
+                sys.exit(1)
         while True:
             # delete table if exists
             table_exist = True
@@ -883,6 +889,8 @@ def main():
     parser.add_argument("--dataOnly", action="store_true", default=False,
                         help="Restore data only. Do not delete/recreate schema [optional for "
                         "restore]")
+    parser.add_argument("--noConfirm", action="store_true", default=False,
+                        help="Don't ask for confirmation before deleting existing schemas.")
     parser.add_argument("--skipThroughputUpdate", action="store_true", default=False,
                         help="Skip updating throughput values across tables [optional]")
     parser.add_argument("--dumpPath", help="Directory to place and search for DynamoDB table "
