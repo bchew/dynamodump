@@ -1,0 +1,48 @@
+name: Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Set up DynamoDB Local
+        run: |
+          mkdir /tmp/dynamodb_local
+          wget -O - https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz | tar xz --directory /tmp/dynamodb_local
+          java -Djava.library.path=/tmp/dynamodb_local/DynamoDBLocal_lib -jar /tmp/dynamodb_local/DynamoDBLocal.jar -sharedDb -inMemory &
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Test basic restore and backup
+        run: |
+          mkdir dump && cp -a test/testTable dump
+          python dynamodump.py -m restore --noConfirm -r local -s testTable -d testRestoredTable --host localhost --port 8000 --accessKey a --secretKey a
+          python dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 8000 --accessKey a --secretKey a
+          python test/test.py
+      - name: Test wildcard restore and backup
+        run: |
+          python dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 --accessKey a --secretKey a
+          rm -rf dump/test*
+          python dynamodump.py -m backup -r local -s "*" --host localhost --port 8000 --accessKey a --secretKey a
+          python test/test.py
+      - name: Test prefixed wildcard restore and backup
+        run: |
+          python dynamodump.py -m restore --noConfirm -r local -s "test*" --host localhost --port 8000 --accessKey a --secretKey a --prefixSeparator ""
+          rm -rf dump/test*
+          python dynamodump.py -m backup -r local -s "test*" --host localhost --port 8000 --accessKey a --secretKey a --prefixSeparator ""
+          python test/test.py
