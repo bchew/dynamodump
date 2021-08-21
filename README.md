@@ -18,7 +18,7 @@ usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET]
                      [-d DESTTABLE] [--prefixSeparator PREFIXSEPARATOR]
                      [--noSeparator] [--readCapacity READCAPACITY] [-t TAG]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
-                     [--dataOnly] [--skipThroughputUpdate]
+                     [--dataOnly] [--noConfirm] [--skipThroughputUpdate]
                      [--dumpPath DUMPPATH] [--log LOG]
 
 Simple DynamoDB backup/restore/empty.
@@ -74,6 +74,8 @@ optional arguments:
                         [optional]
   --dataOnly            Restore data only. Do not delete/recreate schema
                         [optional for restore]
+  --noConfirm           Don't ask for confirmation before deleting existing
+                        schemas.
   --skipThroughputUpdate
                         Skip updating throughput values across tables
                         [optional]
