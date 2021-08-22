@@ -2,7 +2,7 @@
 
 ![Linting Status](https://github.com/bchew/dynamodump/workflows/Linting/badge.svg) ![Test Status](https://github.com/bchew/dynamodump/workflows/Test/badge.svg) [![DockerBuildstatus](https://img.shields.io/docker/build/bchew/dynamodump.svg)](https://hub.docker.com/r/bchew/dynamodump/)
 
-Simple backup and restore script for Amazon DynamoDB using boto to work similarly to mysqldump.
+Simple backup and restore script for Amazon DynamoDB using AWS SDK for Python (boto3) to work similarly to mysqldump.
 
 Suitable for DynamoDB usages of smaller data volume which do not warrant the usage of AWS Data Pipeline for backup/restores/empty.
 
@@ -87,9 +87,11 @@ optional arguments:
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
 
-## AWS example
+## Script (unattended) usage
 
-The following examples assume your AWS access key and secret key is present in ~/.boto
+As of v1.2.0, note that `--noConfirm` is required to perform data restores involving deletions without any confirmation.
+
+## AWS example
 
 Single table backup/restore:
 
@@ -150,12 +152,12 @@ Restore from S3 bucket to specified destination table
 
 ```
 ## source_table identifies archive file in S3 bucket from which backup data is restored
-python2 dynamodump.py -a tar -b some_s3_bucket -m restore -r us-east-1 -p profile -d destination_table -s source_table
+python dynamodump.py -a tar -b some_s3_bucket -m restore -r us-east-1 -p profile -d destination_table -s source_table
 ```
 
 ## Local example
 
-The following assume your local DynamoDB is running on localhost:8000 and is accessible via 'a' as access/secret keys.
+The following assumes your local DynamoDB is running on localhost:8000 and is accessible via 'a' as access/secret keys.
 
 ```
 python dynamodump.py -m backup -r local -s testTable --host localhost --port 8000 --accessKey a --secretKey a
@@ -164,3 +166,16 @@ python dynamodump.py -m restore -r local -s testTable --host localhost --port 80
 ```
 
 Multiple table backup/restore as stated in the AWS examples are also available for local.
+
+## Development
+
+```
+python3 -m venv env
+source env/bin/activate
+
+# install dev requirements
+pip3 install -r requirements-dev.txt
+
+# one-time install of pre-commit hooks
+pre-commit install
+```
