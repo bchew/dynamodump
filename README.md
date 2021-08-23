@@ -11,7 +11,7 @@ dynamodump supports local DynamoDB instances as well (tested with [DynamoDB Loca
 ## Usage
 
 ```
-usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET]
+usage: dynamodump/dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET]
                      [-m {backup,restore,empty}] [-r REGION] [--host HOST]
                      [--port PORT] [--accessKey ACCESSKEY]
                      [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE]
@@ -96,63 +96,63 @@ As of v1.2.0, note that `--noConfirm` is required to perform data restores invol
 Single table backup/restore:
 
 ```
-python dynamodump.py -m backup -r us-west-1 -s testTable
+python dynamodump/dynamodump.py -m backup -r us-west-1 -s testTable
 
-python dynamodump.py -m restore -r us-west-1 -s testTable
+python dynamodump/dynamodump.py -m restore -r us-west-1 -s testTable
 ```
 
 Multiple table backup/restore (assumes prefix of 'production-' of table names, use --prefixSeparator to specify a
 different separator):
 
 ```
-python dynamodump.py -m backup -r us-west-1 -s production*
+python dynamodump/dynamodump.py -m backup -r us-west-1 -s production*
 
-python dynamodump.py -m restore -r us-west-1 -s production*
+python dynamodump/dynamodump.py -m restore -r us-west-1 -s production*
 ```
 
 The above, but between different environments (e.g. production-_ tables to development-_ tables):
 
 ```
-python dynamodump.py -m backup -r us-west-1 -s production*
+python dynamodump/dynamodump.py -m backup -r us-west-1 -s production*
 
-python dynamodump.py -m restore -r us-west-1 -s production* -d development*
+python dynamodump/dynamodump.py -m restore -r us-west-1 -s production* -d development*
 ```
 
 Backup all tables and restore only data (will not delete and recreate schema):
 
 ```
-python dynamodump.py -m backup -r us-west-1 -s "*"
+python dynamodump/dynamodump.py -m backup -r us-west-1 -s "*"
 
-python dynamodump.py -m restore -r us-west-1 -s "*" --dataOnly
+python dynamodump/dynamodump.py -m restore -r us-west-1 -s "*" --dataOnly
 ```
 
 Dump all table schemas and create the schemas (e.g. creating blank tables in a different AWS account):
 
 ```
-python dynamodump.py -m backup -r us-west-1 -p source_credentials -s "*" --schemaOnly
+python dynamodump/dynamodump.py -m backup -r us-west-1 -p source_credentials -s "*" --schemaOnly
 
-python dynamodump.py -m restore -r us-west-1 -p destination_credentials -s "*" --schemaOnly
+python dynamodump/dynamodump.py -m restore -r us-west-1 -p destination_credentials -s "*" --schemaOnly
 ```
 
 Backup all tables based on AWS tag `key=value`
 
 ```
-python dynamodump.py -p profile -r us-east-1 -m backup -t KEY=VALUE
+python dynamodump/dynamodump.py -p profile -r us-east-1 -m backup -t KEY=VALUE
 ```
 
 Backup all tables based on AWS tag, compress and store in specified S3 bucket.
 
 ```
-python dynamodump.py -p profile -r us-east-1 -m backup -a tar -b some_s3_bucket -t TAG_KEY=TAG_VALUE
+python dynamodump/dynamodump.py -p profile -r us-east-1 -m backup -a tar -b some_s3_bucket -t TAG_KEY=TAG_VALUE
 
-python dynamodump.py -p profile -r us-east-1 -m backup -a zip -b some_s3_bucket -t TAG_KEY=TAG_VALUE
+python dynamodump/dynamodump.py -p profile -r us-east-1 -m backup -a zip -b some_s3_bucket -t TAG_KEY=TAG_VALUE
 ```
 
 Restore from S3 bucket to specified destination table
 
 ```
 ## source_table identifies archive file in S3 bucket from which backup data is restored
-python dynamodump.py -a tar -b some_s3_bucket -m restore -r us-east-1 -p profile -d destination_table -s source_table
+python dynamodump/dynamodump.py -a tar -b some_s3_bucket -m restore -r us-east-1 -p profile -d destination_table -s source_table
 ```
 
 ## Local example
@@ -160,9 +160,9 @@ python dynamodump.py -a tar -b some_s3_bucket -m restore -r us-east-1 -p profile
 The following assumes your local DynamoDB is running on localhost:8000 and is accessible via 'a' as access/secret keys.
 
 ```
-python dynamodump.py -m backup -r local -s testTable --host localhost --port 8000 --accessKey a --secretKey a
+python dynamodump/dynamodump.py -m backup -r local -s testTable --host localhost --port 8000 --accessKey a --secretKey a
 
-python dynamodump.py -m restore -r local -s testTable --host localhost --port 8000 --accessKey a --secretKey a
+python dynamodump/dynamodump.py -m restore -r local -s testTable --host localhost --port 8000 --accessKey a --secretKey a
 ```
 
 Multiple table backup/restore as stated in the AWS examples are also available for local.
