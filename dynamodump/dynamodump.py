@@ -5,7 +5,7 @@
     Suitable for DynamoDB usages of smaller data volume which do not warrant the usage of AWS
     Data Pipeline for backup/restores/empty.
 
-    dynamodump supports local DynamoDB instances as well (tested with dynalite).
+    dynamodump supports local DynamoDB instances as well (tested with DynamoDB Local).
 """
 
 import argparse
