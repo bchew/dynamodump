@@ -2,7 +2,7 @@
 import json
 import unittest
 
-TEST_DATA_PATH = "test/testTable"
+TEST_DATA_PATH = "tests/testTable"
 DUMP_DATA_PATH = "dump/testRestoredTable"
 SCHEMA_FILE = "schema.json"
 DATA_FILE = "0001.json"
