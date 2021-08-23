@@ -28,19 +28,19 @@ jobs:
           pip install -r requirements.txt
       - name: Test basic restore and backup
         run: |
-          mkdir dump && cp -a test/testTable dump
+          mkdir dump && cp -a tests/testTable dump
           python dynamodump.py -m restore --noConfirm -r local -s testTable -d testRestoredTable --host localhost --port 8000 --accessKey a --secretKey a
           python dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 8000 --accessKey a --secretKey a
-          python test/test.py
+          python tests/test.py
       - name: Test wildcard restore and backup
         run: |
           python dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 --accessKey a --secretKey a
           rm -rf dump/test*
           python dynamodump.py -m backup -r local -s "*" --host localhost --port 8000 --accessKey a --secretKey a
-          python test/test.py
+          python tests/test.py
       - name: Test prefixed wildcard restore and backup
         run: |
           python dynamodump.py -m restore --noConfirm -r local -s "test*" --host localhost --port 8000 --accessKey a --secretKey a --prefixSeparator ""
           rm -rf dump/test*
           python dynamodump.py -m backup -r local -s "test*" --host localhost --port 8000 --accessKey a --secretKey a --prefixSeparator ""
-          python test/test.py
+          python tests/test.py
