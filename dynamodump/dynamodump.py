@@ -563,7 +563,7 @@ def update_provisioned_throughput(
         wait_for_active_table(conn, table_name, "updated")
 
 
-def do_empty(dynamo, table_name):
+def do_empty(dynamo, table_name, billing_mode):
     """
     Empty table named table_name
     """
@@ -583,6 +583,13 @@ def do_empty(dynamo, table_name):
     table_global_secondary_indexes = table_desc.get("GlobalSecondaryIndexes")
 
     optional_args = {}
+    if billing_mode == "PROVISIONED":
+        table_provisioned_throughput = {
+            "ReadCapacityUnits": int(original_read_capacity),
+            "WriteCapacityUnits": int(original_write_capacity),
+        }
+        optional_args["ProvisionedThroughput"] = table_provisioned_throughput
+
     if table_local_secondary_indexes is not None:
         optional_args["LocalSecondaryIndexes"] = table_local_secondary_indexes
 
@@ -606,7 +613,7 @@ def do_empty(dynamo, table_name):
                 AttributeDefinitions=table_attribute_definitions,
                 TableName=table_name,
                 KeySchema=table_key_schema,
-                ProvisionedThroughput=table_provisioned_throughput,
+                BillingMode=billing_mode,
                 **optional_args
             )
             break
@@ -748,7 +755,14 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
             tableQueue.task_done()
 
 
-def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
+def do_restore(
+    dynamo,
+    sleep_interval,
+    source_table,
+    destination_table,
+    write_capacity,
+    billing_mode,
+):
     """
     Restore table
     """
@@ -811,6 +825,10 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         "WriteCapacityUnits": int(write_capacity),
     }
 
+    optional_args = {}
+    if billing_mode == "PROVISIONED":
+        optional_args["ProvisionedThroughput"] = table_provisioned_throughput
+
     if not args.dataOnly:
 
         logging.info(
@@ -820,7 +838,6 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
             + str(write_capacity)
         )
 
-        optional_args = {}
         if table_local_secondary_indexes is not None:
             optional_args["LocalSecondaryIndexes"] = table_local_secondary_indexes
 
@@ -833,7 +850,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                     AttributeDefinitions=table_attribute_definitions,
                     TableName=table_table_name,
                     KeySchema=table_key_schema,
-                    ProvisionedThroughput=table_provisioned_throughput,
+                    BillingMode=billing_mode,
                     **optional_args
                 )
                 break
@@ -1323,6 +1340,7 @@ def main():
                             source_table,
                             source_table,
                             args.writeCapacity,
+                            args.billingMode,
                         ),
                     )
                 else:
@@ -1339,6 +1357,7 @@ def main():
                                 prefix_separator,
                             ),
                             args.writeCapacity,
+                            args.billingMode,
                         ),
                     )
                 threads.append(t)
@@ -1365,6 +1384,7 @@ def main():
                 source_table=args.srcTable,
                 destination_table=dest_table,
                 write_capacity=args.writeCapacity,
+                billing_mode=args.billingMode,
             )
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
@@ -1380,7 +1400,9 @@ def main():
 
             threads = []
             for table in matching_backup_tables:
-                t = threading.Thread(target=do_empty, args=(conn, table))
+                t = threading.Thread(
+                    target=do_empty, args=(conn, table, args.billingMode)
+                )
                 threads.append(t)
                 t.start()
                 time.sleep(THREAD_START_DELAY)
@@ -1390,7 +1412,7 @@ def main():
 
             logging.info("Empty of table(s) " + args.srcTable + " completed!")
         else:
-            do_empty(conn, args.srcTable)
+            do_empty(conn, args.srcTable, args.billingMode)
 
 
 if __name__ == "__main__":
