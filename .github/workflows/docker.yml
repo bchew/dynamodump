@@ -10,8 +10,8 @@ on:
     branches: [master]
 
 jobs:
-  push_to_registry:
-    name: Push Docker image to Docker Hub
+  push_to_registries:
+    name: Push Docker image to Docker Hub, ECR Public, GitHub Container Registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -29,11 +29,30 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
       
+      - name: Login to ECR Public
+        uses: docker/login-action@v1
+        with:
+          registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        env:
+          AWS_REGION: us-east-1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: bchew/dynamodump
+          images: |
+            ${{ github.repository }}
+            public.ecr.aws/a7p1j9f6/dynamodump
+            ghcr.io/${{ github.repository }}
       
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
