@@ -33,6 +33,7 @@ AWS_SLEEP_INTERVAL = 10  # seconds
 BATCH_WRITE_SLEEP_INTERVAL = 0.15  # seconds
 DATA_DIR = "data"
 DATA_DUMP = "dump"
+BILLING_MODE = "PROVISIONNED"
 DEFAULT_PREFIX_SEPARATOR = "-"
 CURRENT_WORKING_DIR = os.getcwd()
 JSON_INDENT = 2
@@ -1116,6 +1117,13 @@ def main():
         help="Directory to place and search for DynamoDB table "
         "backups (defaults to use '" + str(DATA_DUMP) + "') [optional]",
         default=str(DATA_DUMP),
+    )
+    parser.add_argument(
+        "--billingMode",
+        help="Set billing mode between PROVISIONNED|PAY_PER_REQUEST "
+        " (defaults to use '" + str(BILLING_MODE) + "') [optional]",
+        choices=["PROVISIONNED", "PAY_PER_REQUEST"],
+        default=str(BILLING_MODE),
     )
     parser.add_argument(
         "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL " "[optional]"
