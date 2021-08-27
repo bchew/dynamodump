@@ -1137,7 +1137,7 @@ def main():
     )
     parser.add_argument(
         "--billingMode",
-        help="Set billing mode between PROVISIONNED|PAY_PER_REQUEST "
+        help="Set billing mode between PROVISIONED|PAY_PER_REQUEST "
         " (defaults to use '" + str(BILLING_MODE) + "') [optional]",
         choices=["PROVISIONNED", "PAY_PER_REQUEST"],
         default=str(BILLING_MODE),
