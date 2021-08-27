@@ -11,6 +11,17 @@ Suitable for DynamoDB usages of smaller data volume which do not warrant the usa
 
 dynamodump supports local DynamoDB instances as well (tested with [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html)).
 
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Script (unattended) usage](#script-unattended-usage)
+- [Docker CLI usage](#docker-cli-usage)
+- [AWS example](#aws-example)
+- [Local example](#local-example)
+- [Development](#development)
+
 ## Installation
 
 ```
@@ -99,6 +110,12 @@ Backup files are stored in a 'dump' subdirectory, and are restored from there as
 ## Script (unattended) usage
 
 As of v1.2.0, note that `--noConfirm` is required to perform data restores involving deletions without any confirmation.
+
+## Docker CLI usage
+
+```
+docker run --rm -it bchew/dynamodump -h
+```
 
 ## AWS example
 
