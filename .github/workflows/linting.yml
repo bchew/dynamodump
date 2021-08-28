@@ -6,7 +6,7 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  linting:
     runs-on: ubuntu-latest
     strategy:
       matrix:
