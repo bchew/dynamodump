@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import json
+import os
 import unittest
 
 TEST_DATA_PATH = "tests/testTable"
-DUMP_DATA_PATH = "dump/testRestoredTable"
+DUMP_DATA_DIR = os.getenv("DUMP_DATA_DIR", "dump")
+DUMP_DATA_PATH = f"{DUMP_DATA_DIR}/testRestoredTable"
 SCHEMA_FILE = "schema.json"
 DATA_FILE = "0001.json"
 

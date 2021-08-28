@@ -21,26 +21,86 @@ jobs:
       - name: Set up DynamoDB Local
         run: |
           mkdir /tmp/dynamodb_local
-          wget -O - https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz | tar xz --directory /tmp/dynamodb_local
-          java -Djava.library.path=/tmp/dynamodb_local/DynamoDBLocal_lib -jar /tmp/dynamodb_local/DynamoDBLocal.jar -sharedDb -inMemory &
+          wget -O - https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz \
+            | tar xz --directory /tmp/dynamodb_local
+          java -Djava.library.path=/tmp/dynamodb_local/DynamoDBLocal_lib -jar /tmp/dynamodb_local/DynamoDBLocal.jar \
+            -sharedDb -inMemory &
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
       - name: Test basic restore and backup
         run: |
           mkdir dump && cp -a tests/testTable dump
-          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s testTable -d testRestoredTable --host localhost --port 8000 --accessKey a --secretKey a
-          python dynamodump/dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 8000 --accessKey a --secretKey a
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s testTable -d testRestoredTable \
+            --host localhost --port 8000 --accessKey a --secretKey a
+          python dynamodump/dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 8000 \
+            --accessKey a --secretKey a
           python tests/test.py
       - name: Test wildcard restore and backup
         run: |
-          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 --accessKey a --secretKey a
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 \
+            --accessKey a --secretKey a
           rm -rf dump/test*
-          python dynamodump/dynamodump.py -m backup -r local -s "*" --host localhost --port 8000 --accessKey a --secretKey a
+          python dynamodump/dynamodump.py -m backup -r local -s "*" --host localhost --port 8000 --accessKey a \
+            --secretKey a
           python tests/test.py
       - name: Test prefixed wildcard restore and backup
         run: |
-          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "test*" --host localhost --port 8000 --accessKey a --secretKey a --prefixSeparator ""
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "test*" --host localhost --port 8000 \
+            --accessKey a --secretKey a --prefixSeparator ""
           rm -rf dump/test*
-          python dynamodump/dynamodump.py -m backup -r local -s "test*" --host localhost --port 8000 --accessKey a --secretKey a --prefixSeparator ""
+          python dynamodump/dynamodump.py -m backup -r local -s "test*" --host localhost --port 8000 --accessKey a \
+            --secretKey a --prefixSeparator ""
           python tests/test.py
+      - name: Test non default dump path basic restore and backup
+        run: |
+          rm -rf dump
+          mkdir abc && cp -a tests/testTable abc
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s testTable -d testRestoredTable \
+            --host localhost --port 8000 --accessKey a --secretKey a --dumpPath abc
+          rm -rf abc
+          python dynamodump/dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 8000 \
+            --accessKey a --secretKey a --dumpPath abc
+          DUMP_DATA_DIR=abc python tests/test.py
+      - name: Test non default dump path wildcard restore and backup
+        run: |
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 \
+            --accessKey a --secretKey a --dumpPath abc
+          rm -rf abc/test*
+          python dynamodump/dynamodump.py -m backup -r local -s "*" --host localhost --port 8000 --accessKey a \
+            --secretKey a --dumpPath abc
+          DUMP_DATA_DIR=abc python tests/test.py
+      - name: Test non default dump path prefixed wildcard restore and backup
+        run: |
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "test*" --host localhost --port 8000 \
+            --accessKey a --secretKey a --prefixSeparator "" --dumpPath abc
+          rm -rf abc/test*
+          python dynamodump/dynamodump.py -m backup -r local -s "test*" --host localhost --port 8000 --accessKey a \
+            --secretKey a --prefixSeparator "" --dumpPath abc
+          DUMP_DATA_DIR=abc python tests/test.py
+      - name: Test non default absolute dump path basic restore and backup
+        run: |
+          rm -rf dump
+          mkdir /tmp/abs && cp -a tests/testTable /tmp/abs
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s testTable -d testRestoredTable \
+            --host localhost --port 8000 --accessKey a --secretKey a --dumpPath /tmp/abs
+          rm -rf /tmp/abs
+          python dynamodump/dynamodump.py -m backup -r local -s testRestoredTable --host localhost --port 8000 \
+            --accessKey a --secretKey a --dumpPath /tmp/abs
+          DUMP_DATA_DIR=/tmp/abs python tests/test.py
+      - name: Test non default absolute dump path wildcard restore and backup
+        run: |
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 \
+            --accessKey a --secretKey a --dumpPath /tmp/abs
+          rm -rf /tmp/abs/test*
+          python dynamodump/dynamodump.py -m backup -r local -s "*" --host localhost --port 8000 --accessKey a \
+            --secretKey a --dumpPath /tmp/abs
+          DUMP_DATA_DIR=/tmp/abs python tests/test.py
+      - name: Test non default absolute dump path prefixed wildcard restore and backup
+        run: |
+          python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "test*" --host localhost --port 8000 \
+            --accessKey a --secretKey a --prefixSeparator "" --dumpPath /tmp/abs
+          rm -rf /tmp/abs/test*
+          python dynamodump/dynamodump.py -m backup -r local -s "test*" --host localhost --port 8000 --accessKey a \
+            --secretKey a --prefixSeparator "" --dumpPath /tmp/abs
+          DUMP_DATA_DIR=/tmp/abs python tests/test.py
