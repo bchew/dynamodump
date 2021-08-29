@@ -1,6 +1,7 @@
 # dynamodump
 
 ![Build Status](https://github.com/bchew/dynamodump/actions/workflows/build.yml/badge.svg)
+![CodeQL Status](https://github.com/bchew/dynamodump/actions/workflows/codeql-analysis.yml/badge.svg)
 [![Docker Status](https://github.com/bchew/dynamodump/actions/workflows/docker.yml/badge.svg)](https://hub.docker.com/r/bchew/dynamodump)
 ![Linting Status](https://github.com/bchew/dynamodump/actions/workflows/linting.yml/badge.svg)
 ![Test Status](https://github.com/bchew/dynamodump/actions/workflows/test.yml/badge.svg)
