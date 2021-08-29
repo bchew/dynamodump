@@ -1,6 +1,6 @@
 # dynamodump
 
-[![PyPI version](https://badge.fury.io/py/dynamodump.svg)](https://badge.fury.io/py/dynamodump)
+[![PyPI version](https://img.shields.io/pypi/v/dynamodump)](https://pypi.org/project/dynamodump)
 [![Docker](https://img.shields.io/docker/cloud/build/bchew/dynamodump?label=Docker&style=flat)](https://hub.docker.com/r/bchew/dynamodump/builds)
 ![Linting Status](https://github.com/bchew/dynamodump/workflows/Linting/badge.svg)
 ![Test Status](https://github.com/bchew/dynamodump/workflows/Test/badge.svg)
