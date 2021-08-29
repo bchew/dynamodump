@@ -1,9 +1,12 @@
 # dynamodump
 
+![Build Status](https://github.com/bchew/dynamodump/actions/workflows/build.yml/badge.svg)
+[![Docker Status](https://github.com/bchew/dynamodump/actions/workflows/docker.yml/badge.svg)](https://hub.docker.com/r/bchew/dynamodump)
+![Linting Status](https://github.com/bchew/dynamodump/actions/workflows/linting.yml/badge.svg)
+![Test Status](https://github.com/bchew/dynamodump/actions/workflows/test.yml/badge.svg)
 [![PyPI version](https://img.shields.io/pypi/v/dynamodump)](https://pypi.org/project/dynamodump)
-[![Docker](https://img.shields.io/docker/cloud/build/bchew/dynamodump?label=Docker&style=flat)](https://hub.docker.com/r/bchew/dynamodump/builds)
-![Linting Status](https://github.com/bchew/dynamodump/workflows/Linting/badge.svg)
-![Test Status](https://github.com/bchew/dynamodump/workflows/Test/badge.svg)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/dynamodump.svg)](https://pypi.org/project/dynamodump)
+![Code Style](https://img.shields.io/badge/code%20style-black-black)
 
 Simple backup and restore script for Amazon DynamoDB using AWS SDK for Python (boto3) to work similarly to mysqldump.
 
