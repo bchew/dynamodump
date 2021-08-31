@@ -9,3 +9,7 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+    ignore:
+      # ignore all boto3 patch updates
+      - dependency-name: "boto3"
+        update-types: ["version-update:semver-patch"]
