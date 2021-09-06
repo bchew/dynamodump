@@ -9,51 +9,43 @@
 """
 
 import argparse
+import boto3
+import datetime
+import errno
 import fnmatch
 import json
 import logging
 import os
-import shutil
-import threading
-import datetime
-import errno
-from six.moves import input
-import sys
-import time
 import re
-import zipfile
+import shutil
+import sys
 import tarfile
+import threading
+import time
+import zipfile
+from queue import Queue
+from six.moves import input
+from urllib.error import URLError, HTTPError
+from urllib.request import urlopen
 
-try:
-    from queue import Queue
-except ImportError:
-    from Queue import Queue
 
-try:
-    from urllib.request import urlopen
-    from urllib.error import URLError, HTTPError
-except ImportError:
-    from urllib2 import urlopen, URLError, HTTPError
-
-import boto3
-
-JSON_INDENT = 2
 AWS_SLEEP_INTERVAL = 10  # seconds
-LOCAL_SLEEP_INTERVAL = 1  # seconds
 BATCH_WRITE_SLEEP_INTERVAL = 0.15  # seconds
-MAX_BATCH_WRITE = 25  # DynamoDB limit
-SCHEMA_FILE = "schema.json"
 DATA_DIR = "data"
-MAX_RETRY = 6
-LOCAL_REGION = "local"
-LOG_LEVEL = "INFO"
 DATA_DUMP = "dump"
-RESTORE_WRITE_CAPACITY = 25
-THREAD_START_DELAY = 1  # seconds
-CURRENT_WORKING_DIR = os.getcwd()
 DEFAULT_PREFIX_SEPARATOR = "-"
+CURRENT_WORKING_DIR = os.getcwd()
+JSON_INDENT = 2
+LOCAL_REGION = "local"
+LOCAL_SLEEP_INTERVAL = 1  # seconds
+LOG_LEVEL = "INFO"
+MAX_BATCH_WRITE = 25  # DynamoDB limit
 MAX_NUMBER_BACKUP_WORKERS = 25
+MAX_RETRY = 6
 METADATA_URL = "http://169.254.169.254/latest/meta-data/"
+RESTORE_WRITE_CAPACITY = 25
+SCHEMA_FILE = "schema.json"
+THREAD_START_DELAY = 1  # seconds
 
 json.JSONEncoder.default = lambda self, obj: (
     obj.isoformat() if isinstance(obj, datetime.datetime) else None
