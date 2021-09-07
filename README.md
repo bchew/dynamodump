@@ -103,6 +103,9 @@ optional arguments:
   --skipThroughputUpdate
                         Skip updating throughput values across tables
                         [optional]
+  --billingMode BILLING_MODE
+                        Set billing mode between PROVISIONED|PAY_PER_REQUEST
+                        (defaults to use 'PROVISIONED') [optional]
   --dumpPath DUMPPATH   Directory to place and search for DynamoDB table
                         backups (defaults to use 'dump') [optional]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
