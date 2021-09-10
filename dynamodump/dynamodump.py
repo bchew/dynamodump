@@ -399,7 +399,7 @@ def delete_table(conn, sleep_interval: int, table_name: str):
                 "About to delete table {}. Type 'yes' to continue: ".format(table_name)
             )
             if confirmation != "yes":
-                logging.warn("Confirmation not received. Stopping.")
+                logging.warning("Confirmation not received. Stopping.")
                 sys.exit(1)
         while True:
             # delete table if exists
@@ -563,7 +563,7 @@ def update_provisioned_throughput(
         wait_for_active_table(conn, table_name, "updated")
 
 
-def do_empty(dynamo, table_name, billing_mode):
+def do_empty(dynamo, table_name, billing_mode, streams, lambda_client):
     """
     Empty table named table_name
     """
@@ -634,12 +634,104 @@ def do_empty(dynamo, table_name, billing_mode):
     # wait for table creation completion
     wait_for_active_table(dynamo, table_name, "created")
 
+    if streams:
+        # restore streams
+        logging.info("Restoring DynamoDB Streams after restoring Table " + table_name)
+        restore_table_streams(dynamo, lambda_client, streams, table_name)
+
     logging.info(
         "Recreation of "
         + table_name
         + " completed. Time taken: "
         + str(datetime.datetime.now().replace(microsecond=0) - start_time)
     )
+
+
+def get_table_streams(profile, region, table):
+    """
+    Fetch all defined streams of selected table
+    """
+
+    dynamo = _get_aws_client(profile=profile, region=region, service="dynamodb")
+    dynamodbstreams = _get_aws_client(
+        profile=profile, region=region, service="dynamodbstreams"
+    )
+    lambdaclient = _get_aws_client(profile=profile, region=region, service="lambda")
+    streams = dynamodbstreams.list_streams(TableName=table)
+
+    logging.info("Get streams for {} ...".format(table))
+    streams_list = dict()
+
+    if streams["Streams"]:
+        table_describe = dynamo.describe_table(TableName=table)
+        streams_list["Events"] = list()
+
+        streams_list["Specification"] = dict()
+        if "StreamSpecification" in table_describe["Table"]:
+            streams_list["Specification"] = table_describe["Table"][
+                "StreamSpecification"
+            ]
+
+        for stream in streams["Streams"]:
+            lambda_events = lambdaclient.list_event_source_mappings(
+                EventSourceArn=stream["StreamArn"]
+            )
+            for event in lambda_events["EventSourceMappings"]:
+                if event["State"] == "Enabled":
+                    logging.warning(
+                        "Currently streamed to : {} (Status: {})".format(
+                            event["FunctionArn"],
+                            event["State"],
+                        )
+                    )
+
+                    # Check if DestinationConfig is Valid
+                    destination_config = dict()
+                    if event["DestinationConfig"]["OnFailure"]:
+                        destination_config = event["DestinationConfig"]
+
+                    streams_list["Events"].append(
+                        {
+                            "StartingPosition": event["StartingPosition"],
+                            "FunctionName": event["FunctionArn"],
+                            "Enabled": True,
+                            "DestinationConfig": destination_config,
+                            "MaximumRecordAgeInSeconds": event[
+                                "MaximumRecordAgeInSeconds"
+                            ],
+                            "MaximumRetryAttempts": event["MaximumRetryAttempts"],
+                            "TumblingWindowInSeconds": event["TumblingWindowInSeconds"],
+                            "FunctionResponseTypes": event["FunctionResponseTypes"],
+                            "BisectBatchOnFunctionError": event[
+                                "BisectBatchOnFunctionError"
+                            ],
+                            "BatchSize": event["BatchSize"],
+                        }
+                    )
+    return streams_list
+
+
+def restore_table_streams(dynamo, lambda_client, streams, table):
+    """
+    Restore existing streams of selected table
+    """
+
+    if streams["Specification"]:
+        dynamo.update_table(
+            TableName=table, StreamSpecification=streams["Specification"]
+        )
+
+        # wait until LatestStreamArn available
+        while True:
+            table_describe = dynamo.describe_table(TableName=table)
+            if "LatestStreamArn" in table_describe["Table"]:
+                break
+            time.sleep(3)
+
+        for stream in streams["Events"]:
+            stream["EventSourceArn"] = table_describe["Table"]["LatestStreamArn"]
+            lambda_client.create_event_source_mapping(**stream)
+            logging.info("Stream {} restored.".format(stream["FunctionName"]))
 
 
 def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
@@ -762,6 +854,8 @@ def do_restore(
     destination_table,
     write_capacity,
     billing_mode,
+    streams,
+    lambda_client,
 ):
     """
     Restore table
@@ -871,6 +965,14 @@ def do_restore(
 
         # wait for table creation completion
         wait_for_active_table(dynamo, destination_table, "created")
+
+        if streams:
+            # restore streams
+            logging.info(
+                "Restoring DynamoDB Streams after restoring Table " + destination_table
+            )
+            restore_table_streams(dynamo, lambda_client, streams, destination_table)
+
     elif not args.skipThroughputUpdate:
         # update provisioned capacity
         if int(write_capacity) > original_write_capacity:
@@ -990,6 +1092,13 @@ def do_restore(
 
         # wait for table to become active
         wait_for_active_table(dynamo, destination_table, "active")
+
+        if streams:
+            # restore streams
+            logging.info(
+                "Restoring DynamoDB Streams after restoring Table " + destination_table
+            )
+            restore_table_streams(dynamo, lambda_client, streams, destination_table)
 
         logging.info(
             "Restore for "
@@ -1130,6 +1239,12 @@ def main():
         help="Skip updating throughput values across tables [optional]",
     )
     parser.add_argument(
+        "--skipStreams",
+        action="store_true",
+        default=False,
+        help="Skip DynamoDB Streams re-creation after restore [optional]",
+    )
+    parser.add_argument(
         "--dumpPath",
         help="Directory to place and search for DynamoDB table "
         "backups (defaults to use '" + str(DATA_DUMP) + "') [optional]",
@@ -1166,6 +1281,15 @@ def main():
             secret_key=args.secretKey,
             region=args.region,
         )
+
+        # client for lambda streams actions
+        lambda_client = _get_aws_client(
+            service="lambda",
+            access_key=args.accessKey,
+            secret_key=args.secretKey,
+            region=args.region,
+        )
+
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
         if not args.profile:
@@ -1175,6 +1299,15 @@ def main():
                 secret_key=args.secretKey,
                 region=args.region,
             )
+
+            # client for lambda streams actions
+            lambda_client = _get_aws_client(
+                service="lambda",
+                access_key=args.accessKey,
+                secret_key=args.secretKey,
+                region=args.region,
+            )
+
             sleep_interval = AWS_SLEEP_INTERVAL
         else:
             conn = _get_aws_client(
@@ -1182,6 +1315,14 @@ def main():
                 profile=args.profile,
                 region=args.region,
             )
+
+            # client for lambda streams actions
+            lambda_client = _get_aws_client(
+                service="lambda",
+                profile=args.profile,
+                region=args.region,
+            )
+
             sleep_interval = AWS_SLEEP_INTERVAL
 
     # don't proceed if connection is not established
@@ -1331,6 +1472,10 @@ def main():
 
             threads = []
             for source_table in matching_restore_tables:
+                streams = []
+                if not args.skipStreams:
+                    streams = get_table_streams(args.profile, args.region, source_table)
+
                 if args.srcTable == "*":
                     t = threading.Thread(
                         target=do_restore,
@@ -1341,6 +1486,8 @@ def main():
                             source_table,
                             args.writeCapacity,
                             args.billingMode,
+                            streams,
+                            lambda_client,
                         ),
                     )
                 else:
@@ -1358,6 +1505,8 @@ def main():
                             ),
                             args.writeCapacity,
                             args.billingMode,
+                            streams,
+                            lambda_client,
                         ),
                     )
                 threads.append(t)
@@ -1375,6 +1524,10 @@ def main():
                 + " completed!"
             )
         else:
+            streams = []
+            if not args.skipStreams:
+                streams = get_table_streams(args.profile, args.region, dest_table)
+
             delete_table(
                 conn=conn, sleep_interval=sleep_interval, table_name=dest_table
             )
@@ -1385,6 +1538,8 @@ def main():
                 destination_table=dest_table,
                 write_capacity=args.writeCapacity,
                 billing_mode=args.billingMode,
+                streams=streams,
+                lambda_client=lambda_client,
             )
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
@@ -1400,8 +1555,13 @@ def main():
 
             threads = []
             for table in matching_backup_tables:
+                streams = []
+                if not args.skipStreams:
+                    streams = get_table_streams(args.profile, args.region, table)
+
                 t = threading.Thread(
-                    target=do_empty, args=(conn, table, args.billingMode)
+                    target=do_empty,
+                    args=(conn, table, args.billingMode, streams, lambda_client),
                 )
                 threads.append(t)
                 t.start()
@@ -1412,7 +1572,11 @@ def main():
 
             logging.info("Empty of table(s) " + args.srcTable + " completed!")
         else:
-            do_empty(conn, args.srcTable, args.billingMode)
+            streams = []
+            if not args.skipStreams:
+                streams = get_table_streams(args.profile, args.region, args.srcTable)
+
+            do_empty(conn, args.srcTable, args.billingMode, streams, lambda_client)
 
 
 if __name__ == "__main__":
