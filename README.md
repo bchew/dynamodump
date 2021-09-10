@@ -15,7 +15,6 @@ Suitable for DynamoDB usages of smaller data volume which do not warrant the usa
 
 dynamodump supports local DynamoDB instances as well (tested with [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html)).
 
-
 ## Table of Contents
 
 - [Installation](#installation)
@@ -37,13 +36,13 @@ pip install dynamodump
 ```
 usage: dynamodump [-h] [-a {zip,tar}] [-b BUCKET]
                      [-m {backup,restore,empty}] [-r REGION] [--host HOST]
-                     [--port PORT] [--accessKey ACCESSKEY]
-                     [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE]
-                     [-d DESTTABLE] [--prefixSeparator PREFIXSEPARATOR]
+                     [--port PORT] [--accessKey ACCESSKEY] [--secretKey SECRETKEY]
+                     [-p PROFILE] [-s SRCTABLE] [-d DESTTABLE]
+                     [--prefixSeparator PREFIXSEPARATOR] [--billingMode BILLINGMODE]
                      [--noSeparator] [--readCapacity READCAPACITY] [-t TAG]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
                      [--dataOnly] [--noConfirm] [--skipThroughputUpdate]
-                     [--dumpPath DUMPPATH] [--log LOG]
+                     [--skipStreams] [--dumpPath DUMPPATH] [--log LOG]
 
 Simple DynamoDB backup/restore/empty.
 
@@ -102,6 +101,9 @@ optional arguments:
                         schemas.
   --skipThroughputUpdate
                         Skip updating throughput values across tables
+                        [optional]
+  --skipSteams
+                        Re-create DynamoDB Streams after restore
                         [optional]
   --billingMode BILLING_MODE
                         Set billing mode between PROVISIONED|PAY_PER_REQUEST
