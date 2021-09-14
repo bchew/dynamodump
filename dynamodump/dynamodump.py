@@ -33,7 +33,10 @@ AWS_SLEEP_INTERVAL = 10  # seconds
 BATCH_WRITE_SLEEP_INTERVAL = 0.15  # seconds
 DATA_DIR = "data"
 DATA_DUMP = "dump"
-BILLING_MODE = "PROVISIONNED"
+
+PROVISIONED_BILLING_MODE = "PROVISIONED"
+PAY_PER_REQUEST_BILLING_MODE = "PAY_PER_REQUEST"
+
 DEFAULT_PREFIX_SEPARATOR = "-"
 CURRENT_WORKING_DIR = os.getcwd()
 JSON_INDENT = 2
@@ -583,7 +586,7 @@ def do_empty(dynamo, table_name, billing_mode, streams, lambda_client):
     table_global_secondary_indexes = table_desc.get("GlobalSecondaryIndexes")
 
     optional_args = {}
-    if billing_mode == "PROVISIONED":
+    if billing_mode == PROVISIONED_BILLING_MODE:
         table_provisioned_throughput = {
             "ReadCapacityUnits": int(original_read_capacity),
             "WriteCapacityUnits": int(original_write_capacity),
@@ -920,7 +923,7 @@ def do_restore(
     }
 
     optional_args = {}
-    if billing_mode == "PROVISIONED":
+    if billing_mode == PROVISIONED_BILLING_MODE:
         optional_args["ProvisionedThroughput"] = table_provisioned_throughput
 
     if not args.dataOnly:
@@ -1252,10 +1255,15 @@ def main():
     )
     parser.add_argument(
         "--billingMode",
-        help="Set billing mode between PROVISIONED|PAY_PER_REQUEST "
-        " (defaults to use '" + str(BILLING_MODE) + "') [optional]",
-        choices=["PROVISIONNED", "PAY_PER_REQUEST"],
-        default=str(BILLING_MODE),
+        help="Set billing mode between "
+        + str(PROVISIONED_BILLING_MODE)
+        + "|"
+        + str(PAY_PER_REQUEST_BILLING_MODE)
+        + " (defaults to use '"
+        + str(PROVISIONED_BILLING_MODE)
+        + "') [optional]",
+        choices=[PROVISIONED_BILLING_MODE, PAY_PER_REQUEST_BILLING_MODE],
+        default=str(PROVISIONED_BILLING_MODE),
     )
     parser.add_argument(
         "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL " "[optional]"
