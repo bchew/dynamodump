@@ -9,6 +9,14 @@ python dynamodump/dynamodump.py -m backup -r local -s testRestoredTable --host l
   --accessKey a --secretKey a
 python tests/test.py
 
+# Test wildcard restore and backup with PAY_BY_REQUEST BillingMode
+python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 \
+  --accessKey a --secretKey a --billingMode "PAY_BY_REQUEST"
+rm -rf dump/test*
+python dynamodump/dynamodump.py -m backup -r local -s "*" --host localhost --port 8000 --accessKey a \
+  --secretKey a
+python tests/test.py
+
 # Test wildcard restore and backup
 python dynamodump/dynamodump.py -m restore --noConfirm -r local -s "*" --host localhost --port 8000 \
   --accessKey a --secretKey a
