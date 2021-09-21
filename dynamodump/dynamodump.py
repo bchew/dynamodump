@@ -954,7 +954,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                     try:
                         dynamo.update_table(
                             TableName=destination_table,
-                            global_secondary_index_updates=gsi_data,
+                            GlobalSecondaryIndexUpdates=gsi_data,
                         )
                         break
                     except dynamo.exceptions.LimitExceededException:
