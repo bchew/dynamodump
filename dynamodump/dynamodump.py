@@ -981,7 +981,10 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
 
         if not args.skipThroughputUpdate:
             # revert to original table write capacity if it has been modified
-            if int(write_capacity) != original_write_capacity or int(read_capacity) != original_read_capacity:
+            if (
+                int(write_capacity) != original_write_capacity
+                or int(read_capacity) != original_read_capacity
+            ):
                 update_provisioned_throughput(
                     dynamo,
                     destination_table,
