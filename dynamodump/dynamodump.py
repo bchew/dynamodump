@@ -44,6 +44,7 @@ MAX_NUMBER_BACKUP_WORKERS = 25
 MAX_RETRY = 6
 METADATA_URL = "http://169.254.169.254/latest/meta-data/"
 RESTORE_WRITE_CAPACITY = 25
+RESTORE_READ_CAPACITY = 25
 SCHEMA_FILE = "schema.json"
 THREAD_START_DELAY = 1  # seconds
 
@@ -792,21 +793,49 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         else:
             write_capacity = original_write_capacity
 
+    if original_write_capacity == 0:
+        original_write_capacity = RESTORE_WRITE_CAPACITY
+
+    # ensure that read capacity is at least RESTORE_READ_CAPACITY
+    if original_read_capacity < RESTORE_READ_CAPACITY:
+        read_capacity = RESTORE_WRITE_CAPACITY
+    else:
+        read_capacity = original_read_capacity
+
+    if original_read_capacity == 0:
+        original_read_capacity = RESTORE_READ_CAPACITY
+
     # override GSI write capacities if specified, else use RESTORE_WRITE_CAPACITY if original
     # write capacity is lower
     original_gsi_write_capacities = []
+    original_gsi_read_capacities = []
     if table_global_secondary_indexes is not None:
         for gsi in table_global_secondary_indexes:
-            original_gsi_write_capacities.append(
-                gsi["ProvisionedThroughput"]["WriteCapacityUnits"]
-            )
+            # keeps track of original gsi write capacity units. If provisioned capacity is 0, set to
+            # RESTORE_WRITE_CAPACITY as fallback given that 0 is not allowed for write capacities
+            original_gsi_write_capacity = gsi["ProvisionedThroughput"]["WriteCapacityUnits"]
+            if original_gsi_write_capacity == 0:
+                original_gsi_write_capacity = RESTORE_WRITE_CAPACITY
+
+            original_gsi_write_capacities.append(original_gsi_write_capacity)
 
             if gsi["ProvisionedThroughput"]["WriteCapacityUnits"] < int(write_capacity):
                 gsi["ProvisionedThroughput"]["WriteCapacityUnits"] = int(write_capacity)
 
+            # keeps track of original gsi read capacity units. If provisioned capacity is 0, set to
+            # RESTORE_READ_CAPACITY as fallback given that 0 is not allowed for read capacities
+            original_gsi_read_capacity = gsi["ProvisionedThroughput"]["ReadCapacityUnits"]
+            if original_gsi_read_capacity == 0:
+                original_gsi_read_capacity = RESTORE_READ_CAPACITY
+
+            original_gsi_read_capacities.append(original_gsi_read_capacity)
+
+            if gsi["ProvisionedThroughput"]["ReadCapacityUnits"] < RESTORE_READ_CAPACITY:
+                gsi["ProvisionedThroughput"]["ReadCapacityUnits"] = RESTORE_READ_CAPACITY
+
     # temp provisioned throughput for restore
     table_provisioned_throughput = {
-        "ReadCapacityUnits": int(original_read_capacity),
+        "ReadCapacityUnits": int(read_capacity),
         "WriteCapacityUnits": int(write_capacity),
     }
 
@@ -930,13 +959,14 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                     wcu = gsi["ProvisionedThroughput"]["WriteCapacityUnits"]
                     rcu = gsi["ProvisionedThroughput"]["ReadCapacityUnits"]
                     original_gsi_write_capacity = original_gsi_write_capacities.pop(0)
-                    if original_gsi_write_capacity != wcu:
+                    original_gsi_read_capacity = original_gsi_read_capacities.pop(0)
+                    if original_gsi_write_capacity != wcu or original_gsi_read_capacity != rcu:
                         gsi_data.append(
                             {
                                 "Update": {
                                     "IndexName": gsi["IndexName"],
                                     "ProvisionedThroughput": {
-                                        "ReadCapacityUnits": int(rcu),
+                                        "ReadCapacityUnits": int(original_read_capacity),
                                         "WriteCapacityUnits": int(
                                             original_gsi_write_capacity
                                         ),
@@ -945,30 +975,31 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                             }
                         )
 
-                logging.info(
-                    "Updating "
-                    + destination_table
-                    + " global secondary indexes write capacities as necessary.."
-                )
-                while True:
-                    try:
-                        dynamo.update_table(
-                            TableName=destination_table,
-                            GlobalSecondaryIndexUpdates=gsi_data,
-                        )
-                        break
-                    except dynamo.exceptions.LimitExceededException:
-                        logging.info(
-                            "Limit exceeded, retrying updating throughput of"
-                            "GlobalSecondaryIndexes in " + destination_table + ".."
-                        )
-                        time.sleep(sleep_interval)
-                    except dynamo.exceptions.ProvisionedThroughputExceededException:
-                        logging.info(
-                            "Control plane limit exceeded, retrying updating throughput of"
-                            "GlobalSecondaryIndexes in " + destination_table + ".."
-                        )
-                        time.sleep(sleep_interval)
+                if gsi_data:
+                    logging.info(
+                        "Updating "
+                        + destination_table
+                        + " global secondary indexes write and read capacities as necessary.."
+                    )
+                    while True:
+                        try:
+                            dynamo.update_table(
+                                TableName=destination_table,
+                                GlobalSecondaryIndexUpdates=gsi_data,
+                            )
+                            break
+                        except dynamo.exceptions.LimitExceededException:
+                            logging.info(
+                                "Limit exceeded, retrying updating throughput of"
+                                "GlobalSecondaryIndexes in " + destination_table + ".."
+                            )
+                            time.sleep(sleep_interval)
+                        except dynamo.exceptions.ProvisionedThroughputExceededException:
+                            logging.info(
+                                "Control plane limit exceeded, retrying updating throughput of"
+                                "GlobalSecondaryIndexes in " + destination_table + ".."
+                            )
+                            time.sleep(sleep_interval)
 
         # wait for table to become active
         wait_for_active_table(dynamo, destination_table, "active")
