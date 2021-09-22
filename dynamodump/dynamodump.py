@@ -748,6 +748,31 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
             tableQueue.task_done()
 
 
+def prepare_provisioned_throughput_for_restore(provisioned_throughput):
+    """
+    This function makes sure that the payload returned for the boto3 API call create_table is compatible
+    with the provisioned throughput attribute
+    See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html
+    """
+    return {
+        'ReadCapacityUnits': provisioned_throughput['ReadCapacityUnits'],
+        'WriteCapacityUnits': provisioned_throughput['WriteCapacityUnits']
+    }
+
+
+def prepare_gsi_for_restore(gsi):
+    """
+    This function makes sure that the payload returned for the boto3 API call create_table is compatible
+    See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html
+    """
+    return {
+        'IndexName': gsi['IndexName'],
+        'KeySchema': gsi['KeySchema'],
+        'Projection': gsi['Projection'],
+        'ProvisionedThroughput': prepare_provisioned_throughput_for_restore(gsi['ProvisionedThroughput'])
+    }
+
+
 def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
     """
     Restore table
@@ -853,7 +878,9 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
             optional_args["LocalSecondaryIndexes"] = table_local_secondary_indexes
 
         if table_global_secondary_indexes is not None:
-            optional_args["GlobalSecondaryIndexes"] = table_global_secondary_indexes
+            optional_args["GlobalSecondaryIndexes"] = [
+                prepare_gsi_for_restore(gsi) for gsi in table_global_secondary_indexes
+            ]
 
         while True:
             try:
