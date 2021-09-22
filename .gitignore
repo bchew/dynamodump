@@ -39,3 +39,4 @@ dump
 dynamodump.iml
 env
 .vscode
+.idea
