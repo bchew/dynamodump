@@ -993,7 +993,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                                 "Update": {
                                     "IndexName": gsi["IndexName"],
                                     "ProvisionedThroughput": {
-                                        "ReadCapacityUnits": int(original_read_capacity),
+                                        "ReadCapacityUnits": int(original_gsi_read_capacity),
                                         "WriteCapacityUnits": int(
                                             original_gsi_write_capacity
                                         ),
