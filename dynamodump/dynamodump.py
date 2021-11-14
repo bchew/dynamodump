@@ -59,6 +59,7 @@ def _get_aws_client(
     region: str = None,
     secret_key: str = None,
     access_key: str = None,
+    endpoint_url: str = None,
 ):
     """
     Build connection to some AWS service.
@@ -103,6 +104,7 @@ def _get_aws_client(
             region_name=aws_region,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
+            endpoint_url=endpoint_url
         )
     return client
 
@@ -1217,6 +1219,7 @@ def main():
             access_key=args.accessKey,
             secret_key=args.secretKey,
             region=args.region,
+            endpoint_url="http://" + args.host + ":" + args.port
         )
         sleep_interval = LOCAL_SLEEP_INTERVAL
     else:
