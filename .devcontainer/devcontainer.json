@@ -6,8 +6,8 @@
 		"dockerfile": "Dockerfile",
 		"context": "..",
 		"args": { 
-			// Update 'VARIANT' to pick a Python version: 3, 3.6, 3.7, 3.8, 3.9
-			"VARIANT": "3.9",
+			// Update 'VARIANT' to pick a Python version
+			"VARIANT": "3.10",
 			// Options
 			"NODE_VERSION": "none"
 		}
