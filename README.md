@@ -124,6 +124,13 @@ As of v1.2.0, note that `--noConfirm` is required to perform data restores invol
 docker run --rm -it bchew/dynamodump -h
 ```
 
+dynamodump container images are also published to Amazon ECR Public and GitHub Packages:
+
+```
+public.ecr.aws/bchew/dynamodump
+ghcr.io/bchew/dynamodump
+```
+
 ## AWS example
 
 Single table backup/restore:
