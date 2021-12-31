@@ -1,0 +1,12 @@
+{
+  "extends": ["config:base"],
+  "packageRules": [
+    {
+      "packagePatterns": ["boto3"],
+      "updateTypes": ["minor"]
+    }
+  ],
+  "pre-commit": {
+    "enabled": true
+  }
+}
