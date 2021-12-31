@@ -3,7 +3,7 @@
   "packageRules": [
     {
       "matchPackageNames": ["boto3"],
-      "matchUpdateTypes": ["major", "minor"]
+      "schedule": ["on the first day of the month"]
     }
   ],
   "pre-commit": {
