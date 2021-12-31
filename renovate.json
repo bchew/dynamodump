@@ -2,8 +2,8 @@
   "extends": ["config:base"],
   "packageRules": [
     {
-      "packagePatterns": ["boto3"],
-      "updateTypes": ["minor"]
+      "matchPackageNames": ["boto3"],
+      "matchUpdateTypes": ["major", "minor"]
     }
   ],
   "pre-commit": {
