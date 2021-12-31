@@ -43,6 +43,8 @@ MAX_BATCH_WRITE = 25  # DynamoDB limit
 MAX_NUMBER_BACKUP_WORKERS = 25
 MAX_RETRY = 6
 METADATA_URL = "http://169.254.169.254/latest/meta-data/"
+PAY_PER_REQUEST_BILLING_MODE = "PAY_PER_REQUEST"
+PROVISIONED_BILLING_MODE = "PROVISIONED"
 RESTORE_WRITE_CAPACITY = 25
 RESTORE_READ_CAPACITY = 25
 SCHEMA_FILE = "schema.json"
@@ -565,7 +567,7 @@ def update_provisioned_throughput(
         wait_for_active_table(conn, table_name, "updated")
 
 
-def do_empty(dynamo, table_name):
+def do_empty(dynamo, table_name, billing_mode):
     """
     Empty table named table_name
     """
@@ -585,6 +587,13 @@ def do_empty(dynamo, table_name):
     table_global_secondary_indexes = table_desc.get("GlobalSecondaryIndexes")
 
     optional_args = {}
+    if billing_mode == PROVISIONED_BILLING_MODE:
+        table_provisioned_throughput = {
+            "ReadCapacityUnits": int(original_read_capacity),
+            "WriteCapacityUnits": int(original_write_capacity),
+        }
+        optional_args["ProvisionedThroughput"] = table_provisioned_throughput
+
     if table_local_secondary_indexes is not None:
         optional_args["LocalSecondaryIndexes"] = table_local_secondary_indexes
 
@@ -608,7 +617,7 @@ def do_empty(dynamo, table_name):
                 AttributeDefinitions=table_attribute_definitions,
                 TableName=table_name,
                 KeySchema=table_key_schema,
-                ProvisionedThroughput=table_provisioned_throughput,
+                BillingMode=billing_mode,
                 **optional_args
             )
             break
@@ -777,7 +786,14 @@ def prepare_gsi_for_restore(gsi):
     }
 
 
-def do_restore(dynamo, sleep_interval, source_table, destination_table, write_capacity):
+def do_restore(
+    dynamo,
+    sleep_interval,
+    source_table,
+    destination_table,
+    write_capacity,
+    billing_mode,
+):
     """
     Restore table
     """
@@ -877,6 +893,10 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
         "WriteCapacityUnits": int(write_capacity),
     }
 
+    optional_args = {}
+    if billing_mode == PROVISIONED_BILLING_MODE:
+        optional_args["ProvisionedThroughput"] = table_provisioned_throughput
+
     if not args.dataOnly:
 
         logging.info(
@@ -886,7 +906,6 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
             + str(write_capacity)
         )
 
-        optional_args = {}
         if table_local_secondary_indexes is not None:
             optional_args["LocalSecondaryIndexes"] = table_local_secondary_indexes
 
@@ -901,7 +920,7 @@ def do_restore(dynamo, sleep_interval, source_table, destination_table, write_ca
                     AttributeDefinitions=table_attribute_definitions,
                     TableName=table_table_name,
                     KeySchema=table_key_schema,
-                    ProvisionedThroughput=table_provisioned_throughput,
+                    BillingMode=billing_mode,
                     **optional_args
                 )
                 break
@@ -1197,6 +1216,18 @@ def main():
         default=str(DATA_DUMP),
     )
     parser.add_argument(
+        "--billingMode",
+        help="Set billing mode between "
+        + str(PROVISIONED_BILLING_MODE)
+        + "|"
+        + str(PAY_PER_REQUEST_BILLING_MODE)
+        + " (defaults to use '"
+        + str(PROVISIONED_BILLING_MODE)
+        + "') [optional]",
+        choices=[PROVISIONED_BILLING_MODE, PAY_PER_REQUEST_BILLING_MODE],
+        default=str(PROVISIONED_BILLING_MODE),
+    )
+    parser.add_argument(
         "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL " "[optional]"
     )
     args = parser.parse_args()
@@ -1395,6 +1426,7 @@ def main():
                             source_table,
                             source_table,
                             args.writeCapacity,
+                            args.billingMode,
                         ),
                     )
                 else:
@@ -1411,6 +1443,7 @@ def main():
                                 prefix_separator,
                             ),
                             args.writeCapacity,
+                            args.billingMode,
                         ),
                     )
                 threads.append(t)
@@ -1437,6 +1470,7 @@ def main():
                 source_table=args.srcTable,
                 destination_table=dest_table,
                 write_capacity=args.writeCapacity,
+                billing_mode=args.billingMode,
             )
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
@@ -1452,7 +1486,9 @@ def main():
 
             threads = []
             for table in matching_backup_tables:
-                t = threading.Thread(target=do_empty, args=(conn, table))
+                t = threading.Thread(
+                    target=do_empty, args=(conn, table, args.billingMode)
+                )
                 threads.append(t)
                 t.start()
                 time.sleep(THREAD_START_DELAY)
@@ -1462,7 +1498,7 @@ def main():
 
             logging.info("Empty of table(s) " + args.srcTable + " completed!")
         else:
-            do_empty(conn, args.srcTable)
+            do_empty(conn, args.srcTable, args.billingMode)
 
 
 if __name__ == "__main__":
