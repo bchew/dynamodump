@@ -6,7 +6,7 @@
   "packageRules": [
     {
       "matchPackageNames": ["boto3"],
-      "schedule": ["on the first day of the month"]
+      "schedule": ["every 3 months on the first day of the month"]
     }
   ],
   "pip_requirements": {
