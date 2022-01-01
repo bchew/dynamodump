@@ -1,11 +1,17 @@
 {
+  "additionalReviewers": ["bchew"],
+  "branchPrefix": "renovate-",
   "extends": ["config:base"],
+  "labels": ["dependencies"],
   "packageRules": [
     {
       "matchPackageNames": ["boto3"],
       "schedule": ["on the first day of the month"]
     }
   ],
+  "pip_requirements": {
+    "fileMatch": ["^requirements.*\.txt"]
+  }
   "pre-commit": {
     "enabled": true
   }
