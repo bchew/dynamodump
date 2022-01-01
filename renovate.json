@@ -10,8 +10,8 @@
     }
   ],
   "pip_requirements": {
-    "fileMatch": ["^requirements.*\.txt"]
-  }
+    "fileMatch": ["^requirements.*\\.txt"]
+  },
   "pre-commit": {
     "enabled": true
   }
