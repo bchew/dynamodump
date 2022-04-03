@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="dynamodump",
-    version="1.5.0",
+    version="1.5.1",
     author="Benny Chew",
     author_email="noreply@bennychew.com",
     description="Simple backup and restore for Amazon DynamoDB using AWS SDK for Python (boto3)",
