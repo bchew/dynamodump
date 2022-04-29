@@ -646,7 +646,7 @@ def do_empty(dynamo, table_name, billing_mode):
     )
 
 
-def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
+def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, filterOption=None):
     """
     Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
     """
@@ -703,6 +703,8 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None):
                         optional_args = {}
                         if last_evaluated_key is not None:
                             optional_args["ExclusiveStartKey"] = last_evaluated_key
+                        if filterOption is not None:
+                            optional_args.update(filterOption)
                         scanned_table = dynamo.scan(
                             TableName=table_name, **optional_args
                         )
@@ -1230,6 +1232,11 @@ def main():
     parser.add_argument(
         "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL " "[optional]"
     )
+    parser.add_argument(
+        "-f",
+        "--filterOption",
+        help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues']"
+    )
     args = parser.parse_args()
 
     # set log level
@@ -1282,6 +1289,14 @@ def main():
     if args.noSeparator is True:
         prefix_separator = None
 
+    # set filter options
+    filter_option = None
+    if args.filterOption is not None:
+        with open(args.filterOption, "r") as f:
+            filter_option = json.load(f)
+            if filter_option.keys() != set(("FilterExpression", "ExpressionAttributeNames", "ExpressionAttributeValues")):
+                raise Exception('Invalid filter option format')
+
     # do backup/restore
     start_time = datetime.datetime.now().replace(microsecond=0)
     if args.mode == "backup":
@@ -1311,9 +1326,9 @@ def main():
 
         try:
             if args.srcTable.find("*") == -1:
-                do_backup(conn, args.read_capacity, tableQueue=None)
+                do_backup(conn, args.read_capacity, tableQueue=None, filterOption=filter_option)
             else:
-                do_backup(conn, args.read_capacity, matching_backup_tables)
+                do_backup(conn, args.read_capacity, matching_backup_tables, filterOption=filter_option)
         except AttributeError:
             # Didn't specify srcTable if we get here
 
@@ -1324,7 +1339,7 @@ def main():
                 t = threading.Thread(
                     target=do_backup,
                     args=(conn, args.readCapacity),
-                    kwargs={"tableQueue": q},
+                    kwargs={"tableQueue": q, "filterOption": filter_option},
                 )
                 t.start()
                 threads.append(t)
