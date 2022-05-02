@@ -1235,7 +1235,7 @@ def main():
     parser.add_argument(
         "-f",
         "--filterOption",
-        help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues']"
+        help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues']",
     )
     args = parser.parse_args()
 
@@ -1294,8 +1294,14 @@ def main():
     if args.filterOption is not None:
         with open(args.filterOption, "r") as f:
             filter_option = json.load(f)
-            if filter_option.keys() != set(("FilterExpression", "ExpressionAttributeNames", "ExpressionAttributeValues")):
-                raise Exception('Invalid filter option format')
+            if filter_option.keys() != set(
+                (
+                    "FilterExpression",
+                    "ExpressionAttributeNames",
+                    "ExpressionAttributeValues",
+                )
+            ):
+                raise Exception("Invalid filter option format")
 
     # do backup/restore
     start_time = datetime.datetime.now().replace(microsecond=0)
@@ -1326,9 +1332,19 @@ def main():
 
         try:
             if args.srcTable.find("*") == -1:
-                do_backup(conn, args.read_capacity, tableQueue=None, filterOption=filter_option)
+                do_backup(
+                    conn,
+                    args.read_capacity,
+                    tableQueue=None,
+                    filterOption=filter_option,
+                )
             else:
-                do_backup(conn, args.read_capacity, matching_backup_tables, filterOption=filter_option)
+                do_backup(
+                    conn,
+                    args.read_capacity,
+                    matching_backup_tables,
+                    filterOption=filter_option,
+                )
         except AttributeError:
             # Didn't specify srcTable if we get here
 
