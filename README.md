@@ -44,6 +44,7 @@ usage: dynamodump [-h] [-a {zip,tar}] [-b BUCKET]
                      [--writeCapacity WRITECAPACITY] [--schemaOnly]
                      [--dataOnly] [--noConfirm] [--skipThroughputUpdate]
                      [--billingMode BILLING_MODE] [--dumpPath DUMPPATH] [--log LOG]
+                     [-f FILTEROPTION]
 
 Simple DynamoDB backup/restore/empty.
 
@@ -110,6 +111,8 @@ optional arguments:
                         backups (defaults to use 'dump') [optional]
   --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
                         [optional]
+  -f FILTEROPTION, --filterOption FILTEROPTION
+                        Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues']
 ```
 
 Backup files are stored in a 'dump' subdirectory, and are restored from there as well by default.
