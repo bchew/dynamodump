@@ -1,4 +1,4 @@
 -r requirements.txt
 black==22.6.0
 flake8==4.0.1
-pre-commit==2.19.0
+pre-commit==2.20.0
