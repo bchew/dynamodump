@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# Test script which assumes DynamoDB Local is ready and available via `docker-compose up`
+# Test script which assumes DynamoDB Local is ready and available via `docker compose up`
 
 # Test basic restore and backup
 mkdir -p dump && cp -a tests/testTable dump
