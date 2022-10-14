@@ -643,17 +643,19 @@ def do_empty(dynamo, table_name, billing_mode):
     )
 
 
-def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, filterOption=None):
+def do_backup(
+    dynamo, read_capacity, table_queue=None, src_table=None, filter_option=None
+):
     """
-    Connect to DynamoDB and perform the backup for srcTable or each table in tableQueue
+    Connect to DynamoDB and perform the backup for src_table or each table in table_queue
     """
 
-    if srcTable:
-        table_name = srcTable
+    if src_table:
+        table_name = src_table
 
-    if tableQueue:
+    if table_queue:
         while True:
-            table_name = tableQueue.get()
+            table_name = table_queue.get()
             if table_name is None:
                 break
 
@@ -700,8 +702,8 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, filterOptio
                         optional_args = {}
                         if last_evaluated_key is not None:
                             optional_args["ExclusiveStartKey"] = last_evaluated_key
-                        if filterOption is not None:
-                            optional_args.update(filterOption)
+                        if filter_option is not None:
+                            optional_args.update(filter_option)
                         scanned_table = dynamo.scan(
                             TableName=table_name, **optional_args
                         )
@@ -711,7 +713,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, filterOptio
                             + table_name
                             + ".  BACKUP FOR IT IS USELESS."
                         )
-                        tableQueue.task_done()
+                        table_queue.task_done()
 
                     f = open(
                         args.dumpPath
@@ -755,7 +757,7 @@ def do_backup(dynamo, read_capacity, tableQueue=None, srcTable=None, filterOptio
                     + str(datetime.datetime.now().replace(microsecond=0) - start_time)
                 )
 
-            tableQueue.task_done()
+            table_queue.task_done()
 
 
 def prepare_provisioned_throughput_for_restore(provisioned_throughput):
@@ -1330,15 +1332,15 @@ def main():
                 do_backup(
                     conn,
                     args.read_capacity,
-                    tableQueue=None,
-                    filterOption=filter_option,
+                    table_queue=None,
+                    filter_option=filter_option,
                 )
             else:
                 do_backup(
                     conn,
                     args.read_capacity,
                     matching_backup_tables,
-                    filterOption=filter_option,
+                    filter_option=filter_option,
                 )
         except AttributeError:
             # Didn't specify srcTable if we get here
@@ -1350,7 +1352,7 @@ def main():
                 t = threading.Thread(
                     target=do_backup,
                     args=(conn, args.readCapacity),
-                    kwargs={"tableQueue": q, "filterOption": filter_option},
+                    kwargs={"table_queue": q, "filter_option": filter_option},
                 )
                 t.start()
                 threads.append(t)
