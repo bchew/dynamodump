@@ -301,7 +301,7 @@ def do_archive(archive_type, dump_path):
         return False, None
 
 
-def get_table_name_matches(conn, table_name_wildcard, separator):
+def get_table_name_matches(conn, table_name_wildcard):
     """
     Find tables to backup
     """
@@ -447,7 +447,6 @@ def delete_table(conn, sleep_interval: int, table_name: str):
                     time.sleep(sleep_interval)
             except conn.exceptions.ResourceNotFoundException:
                 logging.info(table_name + " table deleted.")
-                pass
             except conn.exceptions.ClientError as e:
                 logging.exception(e)
                 sys.exit(1)
@@ -461,9 +460,7 @@ def mkdir_p(path):
     try:
         os.makedirs(path)
     except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
+        if not (exc.errno == errno.EEXIST and os.path.isdir(path)):
             raise
 
 
@@ -1104,13 +1101,13 @@ def main():
     parser.add_argument(
         "-a",
         "--archive",
-        help="Type of compressed archive to create." "If unset, don't create archive",
+        help="Type of compressed archive to create. If unset, don't create archive",
         choices=["zip", "tar"],
     )
     parser.add_argument(
         "-b",
         "--bucket",
-        help="S3 bucket in which to store or retrieve backups." "[must already exist]",
+        help="S3 bucket in which to store or retrieve backups. [must already exist]",
     )
     parser.add_argument(
         "-m",
@@ -1133,10 +1130,10 @@ def main():
         "--port", help="Port of local DynamoDB [required only for local]"
     )
     parser.add_argument(
-        "--accessKey", help="Access key of local DynamoDB " "[required only for local]"
+        "--accessKey", help="Access key of local DynamoDB [required only for local]"
     )
     parser.add_argument(
-        "--secretKey", help="Secret key of local DynamoDB " "[required only for local]"
+        "--secretKey", help="Secret key of local DynamoDB [required only for local]"
     )
     parser.add_argument(
         "-p",
@@ -1160,7 +1157,7 @@ def main():
     )
     parser.add_argument(
         "--prefixSeparator",
-        help="Specify a different prefix separator, " "e.g. '.' [optional]",
+        help="Specify a different prefix separator, e.g. '.' [optional]",
     )
     parser.add_argument(
         "--noSeparator",
@@ -1230,7 +1227,7 @@ def main():
         default=str(PROVISIONED_BILLING_MODE),
     )
     parser.add_argument(
-        "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL " "[optional]"
+        "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]"
     )
     parser.add_argument(
         "-f",
@@ -1313,9 +1310,7 @@ def main():
                 args.profile, args.region, args.tag
             )
         elif args.srcTable.find("*") != -1:
-            matching_backup_tables = get_table_name_matches(
-                conn, args.srcTable, prefix_separator
-            )
+            matching_backup_tables = get_table_name_matches(conn, args.srcTable)
         elif args.srcTable:
             matching_backup_tables.append(args.srcTable)
 
@@ -1351,7 +1346,7 @@ def main():
             q = Queue()
             threads = []
 
-            for i in range(MAX_NUMBER_BACKUP_WORKERS):
+            for _ in range(MAX_NUMBER_BACKUP_WORKERS):
                 t = threading.Thread(
                     target=do_backup,
                     args=(conn, args.readCapacity),
@@ -1366,7 +1361,7 @@ def main():
 
             q.join()
 
-            for i in range(MAX_NUMBER_BACKUP_WORKERS):
+            for _ in range(MAX_NUMBER_BACKUP_WORKERS):
                 q.put(None)
             for t in threads:
                 t.join()
@@ -1410,9 +1405,7 @@ def main():
             )
 
         if dest_table.find("*") != -1:
-            matching_destination_tables = get_table_name_matches(
-                conn, dest_table, prefix_separator
-            )
+            matching_destination_tables = get_table_name_matches(conn, dest_table)
             delete_str = ": " if args.dataOnly else " to be deleted: "
             logging.info(
                 "Found "
@@ -1505,9 +1498,7 @@ def main():
             )
     elif args.mode == "empty":
         if args.srcTable.find("*") != -1:
-            matching_backup_tables = get_table_name_matches(
-                conn, args.srcTable, prefix_separator
-            )
+            matching_backup_tables = get_table_name_matches(conn, args.srcTable)
             logging.info(
                 "Found "
                 + str(len(matching_backup_tables))
