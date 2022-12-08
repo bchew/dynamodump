@@ -201,6 +201,7 @@ dynamodump -a tar -b some_s3_bucket -m restore -r us-east-1 -p profile -d destin
 ## Local example
 
 The following assumes your local DynamoDB is running on localhost:8000 and is accessible via 'a' as access/secret keys.
+You must specify the host to get local behavior.
 
 ```
 dynamodump -m backup -r local -s testTable --host localhost --port 8000 --accessKey a --secretKey a
