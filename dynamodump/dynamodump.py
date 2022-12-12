@@ -1124,7 +1124,7 @@ def main():
     )
     parser.add_argument(
         "--host",
-        help="Host of local DynamoDB. This parameter triggers going to a local environment. [required only for local]",
+        help="Host of local DynamoDB. This parameter initialises dynamodump for local DynamoDB testing [required only for local]",
     )
     parser.add_argument(
         "--port", help="Port of local DynamoDB [required only for local]"
