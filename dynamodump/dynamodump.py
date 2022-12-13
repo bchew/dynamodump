@@ -36,7 +36,6 @@ DATA_DUMP = "dump"
 DEFAULT_PREFIX_SEPARATOR = "-"
 CURRENT_WORKING_DIR = os.getcwd()
 JSON_INDENT = 2
-LOCAL_REGION = "local"
 LOCAL_SLEEP_INTERVAL = 1  # seconds
 LOG_LEVEL = "INFO"
 MAX_BATCH_WRITE = 25  # DynamoDB limit
@@ -1121,12 +1120,11 @@ def main():
         "-r",
         "--region",
         help="AWS region to use, e.g. 'us-west-1'. "
-        "Can use AWS_DEFAULT_REGION for local testing.  Use '"
-        + LOCAL_REGION
-        + "' for local DynamoDB testing",
+        "Can use any region for local testing",
     )
     parser.add_argument(
-        "--host", help="Host of local DynamoDB [required only for local]"
+        "--host",
+        help="Host of local DynamoDB. This parameter initialises dynamodump for local DynamoDB testing [required only for local]",
     )
     parser.add_argument(
         "--port", help="Port of local DynamoDB [required only for local]"
@@ -1250,7 +1248,7 @@ def main():
         sys.exit(1)
 
     # instantiate connection
-    if args.region == LOCAL_REGION:
+    if args.host:
         conn = _get_aws_client(
             service="dynamodb",
             access_key=args.accessKey,
