@@ -11,6 +11,6 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v6
+      - uses: actions/stale@v7
         with:
           exempt-issue-labels: 'renovate'
