@@ -362,7 +362,6 @@ def get_restore_table_matches(table_name_wildcard, separator):
         if table_name_wildcard == "*":
             matching_tables.append(dir_name)
         elif separator == "":
-
             if dir_name.startswith(
                 re.sub(
                     r"([A-Z])", r" \1", table_name_wildcard.split("*", 1)[0]
@@ -898,7 +897,6 @@ def do_restore(
         optional_args["ProvisionedThroughput"] = table_provisioned_throughput
 
     if not args.dataOnly:
-
         logging.info(
             "Creating "
             + destination_table
