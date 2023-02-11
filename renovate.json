@@ -1,7 +1,7 @@
 {
   "additionalReviewers": ["bchew"],
   "branchPrefix": "renovate-",
-  "extends": ["config:base"],
+  "extends": ["config:base", "schedule:monthly"],
   "labels": ["dependencies"],
   "packageRules": [
     {
