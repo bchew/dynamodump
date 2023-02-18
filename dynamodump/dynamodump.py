@@ -778,7 +778,7 @@ def prepare_lsi_for_restore(lsi):
     return {
         "IndexName": lsi["IndexName"],
         "KeySchema": lsi["KeySchema"],
-        "Projection": lsi["Projection"]
+        "Projection": lsi["Projection"],
     }
 
 
@@ -1280,9 +1280,7 @@ def main():
             sleep_interval = AWS_SLEEP_INTERVAL
         else:
             conn = _get_aws_client(
-                service="dynamodb",
-                profile=args.profile,
-                region=args.region,
+                service="dynamodb", profile=args.profile, region=args.region,
             )
             sleep_interval = AWS_SLEEP_INTERVAL
 
