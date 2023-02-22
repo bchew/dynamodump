@@ -12,7 +12,9 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/bchew/dynamodump",
-    project_urls={"Releases": "https://github.com/bchew/dynamodump/releases",},
+    project_urls={
+        "Releases": "https://github.com/bchew/dynamodump/releases",
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
@@ -20,5 +22,7 @@ setuptools.setup(
     packages=["dynamodump"],
     python_requires=">=3.7",
     install_requires=["boto3==1.26.41", "six==1.16.0"],
-    entry_points={"console_scripts": ["dynamodump=dynamodump.dynamodump:main"],},
+    entry_points={
+        "console_scripts": ["dynamodump=dynamodump.dynamodump:main"],
+    },
 )

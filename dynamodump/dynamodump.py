@@ -1280,7 +1280,9 @@ def main():
             sleep_interval = AWS_SLEEP_INTERVAL
         else:
             conn = _get_aws_client(
-                service="dynamodb", profile=args.profile, region=args.region,
+                service="dynamodb",
+                profile=args.profile,
+                region=args.region,
             )
             sleep_interval = AWS_SLEEP_INTERVAL
 
