@@ -770,6 +770,18 @@ def prepare_provisioned_throughput_for_restore(provisioned_throughput):
     }
 
 
+def prepare_lsi_for_restore(lsi):
+    """
+    This function makes sure that the payload returned for the boto3 API call create_table is compatible
+    See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#DynamoDB.Client.create_table
+    """
+    return {
+        "IndexName": lsi["IndexName"],
+        "KeySchema": lsi["KeySchema"],
+        "Projection": lsi["Projection"],
+    }
+
+
 def prepare_gsi_for_restore(gsi):
     """
     This function makes sure that the payload returned for the boto3 API call create_table is compatible
@@ -905,7 +917,9 @@ def do_restore(
         )
 
         if table_local_secondary_indexes is not None:
-            optional_args["LocalSecondaryIndexes"] = table_local_secondary_indexes
+            optional_args["LocalSecondaryIndexes"] = [
+                prepare_lsi_for_restore(gsi) for gsi in table_local_secondary_indexes
+            ]
 
         if table_global_secondary_indexes is not None:
             optional_args["GlobalSecondaryIndexes"] = [
