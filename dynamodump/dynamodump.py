@@ -657,7 +657,7 @@ def do_empty(dynamo, table_name, billing_mode):
 
 
 def do_backup(
-    dynamo, read_capacity, table_queue=None, src_table=None, filter_option=None
+    dynamo, read_capacity, limit=None, table_queue=None, src_table=None, filter_option=None
 ):
     """
     Connect to DynamoDB and perform the backup for src_table or each table in table_queue
@@ -708,6 +708,7 @@ def do_backup(
                 mkdir_p(args.dumpPath + os.sep + table_name + os.sep + DATA_DIR)
 
                 i = 1
+                num_items = 0
                 last_evaluated_key = None
 
                 while True:
@@ -740,10 +741,15 @@ def do_backup(
                         "w+",
                     )
                     del scanned_table["ResponseMetadata"]
+
                     f.write(json.dumps(scanned_table, indent=JSON_INDENT))
                     f.close()
 
                     i += 1
+
+                    num_items += len(scanned_table["Items"])
+                    if limit and num_items > limit:
+                        break
 
                     try:
                         last_evaluated_key = scanned_table["LastEvaluatedKey"]
@@ -1258,6 +1264,9 @@ def main():
         "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]"
     )
     parser.add_argument(
+        "--limit", help="max item to backup [optional]", type=int
+    )
+    parser.add_argument(
         "-f",
         "--filterOption",
         help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues', 'Limit']",
@@ -1324,7 +1333,6 @@ def main():
                     "FilterExpression",
                     "ExpressionAttributeNames",
                     "ExpressionAttributeValues",
-                    "Limit",
                 )
             ):
                 raise Exception("Invalid filter option format")
@@ -1359,6 +1367,7 @@ def main():
                 do_backup(
                     conn,
                     args.read_capacity,
+                    limit=args.limit,
                     table_queue=None,
                     filter_option=filter_option,
                 )
@@ -1367,6 +1376,7 @@ def main():
                     conn,
                     args.read_capacity,
                     matching_backup_tables,
+                    limit=args.limit,
                     filter_option=filter_option,
                 )
         except AttributeError:
@@ -1379,7 +1389,7 @@ def main():
                 t = threading.Thread(
                     target=do_backup,
                     args=(conn, args.readCapacity),
-                    kwargs={"table_queue": q, "filter_option": filter_option},
+                    kwargs={"table_queue": q, "filter_option": filter_option, "limit": args.limit},
                 )
                 t.start()
                 threads.append(t)
