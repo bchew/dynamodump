@@ -49,10 +49,25 @@ RESTORE_READ_CAPACITY = 25
 SCHEMA_FILE = "schema.json"
 THREAD_START_DELAY = 1  # seconds
 
-json.JSONEncoder.default = lambda self, obj: (
-    obj.isoformat() if isinstance(obj, datetime.datetime) else None
-)
+import base64
 
+def encoder(self, obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode("utf-8")
+
+    return json.JSONEncoder.encoder(self, ob)
+
+json.JSONEncoder.default = encoder
+
+def process_item_types(dct):
+    for item in dct["Items"]:
+        for key in item:
+            val = item[key]
+            if "B" in val:
+                item[key]["B"] = base64.b64decode(val["B"].encode("utf-8"))
 
 def _get_aws_client(
     service: str,
@@ -980,8 +995,9 @@ def do_restore(
                     + DATA_DIR
                     + os.sep
                     + data_file
-                )
+                ),
             )
+            process_item_types(item_data)
             items.extend(item_data["Items"])
 
             # batch write data
@@ -1244,7 +1260,7 @@ def main():
     parser.add_argument(
         "-f",
         "--filterOption",
-        help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues']",
+        help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues', 'Limit']",
     )
     args = parser.parse_args()
 
@@ -1308,6 +1324,7 @@ def main():
                     "FilterExpression",
                     "ExpressionAttributeNames",
                     "ExpressionAttributeValues",
+                    "Limit",
                 )
             ):
                 raise Exception("Invalid filter option format")
