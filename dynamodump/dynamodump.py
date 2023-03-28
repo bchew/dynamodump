@@ -1264,12 +1264,12 @@ def main():
         "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]"
     )
     parser.add_argument(
-        "--limit", help="max item to backup [optional]", type=int
+        "--limit", help="Limit option for backup, will stop the back up process after number of backed up items exceeded the limit [optional]", type=int
     )
     parser.add_argument(
         "-f",
         "--filterOption",
-        help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues', 'Limit']",
+        help="Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues']",
     )
     args = parser.parse_args()
 
