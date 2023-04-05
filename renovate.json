@@ -1,7 +1,7 @@
 {
   "additionalReviewers": ["bchew"],
   "branchPrefix": "renovate-",
-  "extends": ["config:base", "schedule:monthly"],
+  "extends": ["config:base"],
   "labels": ["dependencies"],
   "packageRules": [
     {
@@ -14,5 +14,8 @@
   },
   "pre-commit": {
     "enabled": true
-  }
+  },
+  "schedule": [
+    "before 3am on the first day of the month"
+  ]
 }
