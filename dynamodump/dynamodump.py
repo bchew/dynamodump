@@ -58,7 +58,7 @@ def encoder(self, obj):
     if isinstance(obj, bytes):
         return base64.b64encode(obj).decode("utf-8")
 
-    return json.JSONEncoder.encoder(self, ob)
+    return json.JSONEncoder.encoder(self, obj)
 
 json.JSONEncoder.default = encoder
 
