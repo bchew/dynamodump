@@ -51,6 +51,7 @@ THREAD_START_DELAY = 1  # seconds
 
 import base64
 
+
 def encoder(self, obj):
     if isinstance(obj, datetime.datetime):
         return obj.isoformat()
@@ -60,7 +61,9 @@ def encoder(self, obj):
 
     return json.JSONEncoder.encoder(self, obj)
 
+
 json.JSONEncoder.default = encoder
+
 
 def process_item_types(dct):
     for item in dct["Items"]:
@@ -68,6 +71,7 @@ def process_item_types(dct):
             val = item[key]
             if "B" in val:
                 item[key]["B"] = base64.b64decode(val["B"].encode("utf-8"))
+
 
 def _get_aws_client(
     service: str,
@@ -657,7 +661,12 @@ def do_empty(dynamo, table_name, billing_mode):
 
 
 def do_backup(
-    dynamo, read_capacity, limit=None, table_queue=None, src_table=None, filter_option=None
+    dynamo,
+    read_capacity,
+    limit=None,
+    table_queue=None,
+    src_table=None,
+    filter_option=None,
 ):
     """
     Connect to DynamoDB and perform the backup for src_table or each table in table_queue
@@ -1264,7 +1273,9 @@ def main():
         "--log", help="Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]"
     )
     parser.add_argument(
-        "--limit", help="Limit option for backup, will stop the back up process after number of backed up items exceeded the limit [optional]", type=int
+        "--limit",
+        help="Limit option for backup, will stop the back up process after number of backed up items reaches the limit [optional]",
+        type=int,
     )
     parser.add_argument(
         "-f",
@@ -1389,7 +1400,11 @@ def main():
                 t = threading.Thread(
                     target=do_backup,
                     args=(conn, args.readCapacity),
-                    kwargs={"table_queue": q, "filter_option": filter_option, "limit": args.limit},
+                    kwargs={
+                        "table_queue": q,
+                        "filter_option": filter_option,
+                        "limit": args.limit,
+                    },
                 )
                 t.start()
                 threads.append(t)
