@@ -9,6 +9,7 @@
 """
 
 import argparse
+import base64
 import boto3
 import datetime
 import errno
@@ -48,8 +49,6 @@ RESTORE_WRITE_CAPACITY = 25
 RESTORE_READ_CAPACITY = 25
 SCHEMA_FILE = "schema.json"
 THREAD_START_DELAY = 1  # seconds
-
-import base64
 
 
 def encoder(self, obj):
