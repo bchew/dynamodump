@@ -662,10 +662,10 @@ def do_empty(dynamo, table_name, billing_mode):
 def do_backup(
     dynamo,
     read_capacity,
-    limit=None,
     table_queue=None,
     src_table=None,
     filter_option=None,
+    limit=None,
 ):
     """
     Connect to DynamoDB and perform the backup for src_table or each table in table_queue
@@ -1377,17 +1377,17 @@ def main():
                 do_backup(
                     conn,
                     args.read_capacity,
-                    limit=args.limit,
                     table_queue=None,
                     filter_option=filter_option,
+                    limit=args.limit,
                 )
             else:
                 do_backup(
                     conn,
                     args.read_capacity,
                     matching_backup_tables,
-                    limit=args.limit,
                     filter_option=filter_option,
+                    limit=args.limit,
                 )
         except AttributeError:
             # Didn't specify srcTable if we get here
