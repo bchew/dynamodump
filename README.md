@@ -15,7 +15,6 @@ Suitable for DynamoDB usages of smaller data volume which do not warrant the usa
 
 dynamodump supports local DynamoDB instances as well (tested with [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html)).
 
-
 ## Table of Contents
 
 - [Installation](#installation)
@@ -35,82 +34,52 @@ pip install dynamodump
 ## Usage
 
 ```
-usage: dynamodump [-h] [-a {zip,tar}] [-b BUCKET]
-                     [-m {backup,restore,empty}] [-r REGION] [--host HOST]
-                     [--port PORT] [--accessKey ACCESSKEY]
-                     [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE]
-                     [-d DESTTABLE] [--prefixSeparator PREFIXSEPARATOR]
-                     [--noSeparator] [--readCapacity READCAPACITY] [-t TAG]
-                     [--writeCapacity WRITECAPACITY] [--schemaOnly]
-                     [--dataOnly] [--noConfirm] [--skipThroughputUpdate]
-                     [--billingMode BILLING_MODE] [--dumpPath DUMPPATH] [--log LOG]
-                     [-f FILTEROPTION]
+usage: dynamodump.py [-h] [-a {zip,tar}] [-b BUCKET] [-m {backup,restore,empty}] [-r REGION] [--host HOST] [--port PORT] [--accessKey ACCESSKEY] [--secretKey SECRETKEY] [-p PROFILE] [-s SRCTABLE] [-d DESTTABLE]
+                     [--prefixSeparator PREFIXSEPARATOR] [--noSeparator] [--readCapacity READCAPACITY] [-t TAG] [--writeCapacity WRITECAPACITY] [--schemaOnly] [--dataOnly] [--noConfirm] [--skipThroughputUpdate]
+                     [--dumpPath DUMPPATH] [--billingMode {PROVISIONED,PAY_PER_REQUEST}] [--log LOG] [--limit LIMIT] [-f FILTEROPTION]
 
 Simple DynamoDB backup/restore/empty.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -a {zip,tar}, --archive {zip,tar}
-                        Type of compressed archive to create.If unset, don't
-                        create archive
+                        Type of compressed archive to create. If unset, don't create archive
   -b BUCKET, --bucket BUCKET
-                        S3 bucket in which to store or retrieve backups.[must
-                        already exist]
+                        S3 bucket in which to store or retrieve backups. [must already exist]
   -m {backup,restore,empty}, --mode {backup,restore,empty}
                         Operation to perform
   -r REGION, --region REGION
-                        AWS region to use, e.g. 'us-west-1'. Can use
-                        AWS_DEFAULT_REGION for local testing. Use 'local' for
-                        local DynamoDB testing
-  --host HOST           Host of local DynamoDB [required only for local]
+                        AWS region to use, e.g. 'us-west-1'. Can use any region for local testing
+  --host HOST           Host of local DynamoDB. This parameter initialises dynamodump for local DynamoDB testing [required only for local]
   --port PORT           Port of local DynamoDB [required only for local]
   --accessKey ACCESSKEY
                         Access key of local DynamoDB [required only for local]
   --secretKey SECRETKEY
                         Secret key of local DynamoDB [required only for local]
   -p PROFILE, --profile PROFILE
-                        AWS credentials file profile to use. Allows you to use
-                        a profile instead accessKey, secretKey authentication
+                        AWS credentials file profile to use. Allows you to use a profile instead accessKey, secretKey authentication
   -s SRCTABLE, --srcTable SRCTABLE
-                        Source DynamoDB table name to backup or restore from,
-                        use 'tablename*' for wildcard prefix selection or '*'
-                        for all tables. Mutually exclusive with --tag
+                        Source DynamoDB table name to backup or restore from, use 'tablename*' for wildcard prefix selection or '*' for all tables. Mutually exclusive with --tag
   -d DESTTABLE, --destTable DESTTABLE
-                        Destination DynamoDB table name to backup or restore
-                        to, use 'tablename*' for wildcard prefix selection
-                        (defaults to use '-' separator) [optional, defaults to
-                        source]
+                        Destination DynamoDB table name to backup or restore to, use 'tablename*' for wildcard prefix selection (defaults to use '-' separator) [optional, defaults to source]
   --prefixSeparator PREFIXSEPARATOR
-                        Specify a different prefix separator, e.g. '.'
-                        [optional]
-  --noSeparator         Overrides the use of a prefix separator for backup
-                        wildcard searches [optional]
+                        Specify a different prefix separator, e.g. '.' [optional]
+  --noSeparator         Overrides the use of a prefix separator for backup wildcard searches [optional]
   --readCapacity READCAPACITY
-                        Change the temp read capacity of the DynamoDB table to
-                        backup from [optional]
-  -t TAG, --tag TAG     Tag to use for identifying tables to back up. Mutually
-                        exclusive with srcTable. Provided as KEY=VALUE
+                        Change the temp read capacity of the DynamoDB table to backup from [optional]
+  -t TAG, --tag TAG     Tag to use for identifying tables to back up. Mutually exclusive with srcTable. Provided as KEY=VALUE
   --writeCapacity WRITECAPACITY
-                        Change the temp write capacity of the DynamoDB table
-                        to restore to [defaults to 25, optional]
-  --schemaOnly          Backup or restore the schema only. Do not
-                        backup/restore data. Can be used with both backup and
-                        restore modes. Cannot be used with the --dataOnly
-                        [optional]
-  --dataOnly            Restore data only. Do not delete/recreate schema
-                        [optional for restore]
-  --noConfirm           Don't ask for confirmation before deleting existing
-                        schemas.
+                        Change the temp write capacity of the DynamoDB table to restore to [defaults to 25, optional]
+  --schemaOnly          Backup or restore the schema only. Do not backup/restore data. Can be used with both backup and restore modes. Cannot be used with the --dataOnly [optional]
+  --dataOnly            Restore data only. Do not delete/recreate schema [optional for restore]
+  --noConfirm           Don't ask for confirmation before deleting existing schemas.
   --skipThroughputUpdate
-                        Skip updating throughput values across tables
-                        [optional]
-  --billingMode BILLING_MODE
-                        Set billing mode between PROVISIONED|PAY_PER_REQUEST
-                        (defaults to use 'PROVISIONED') [optional]
-  --dumpPath DUMPPATH   Directory to place and search for DynamoDB table
-                        backups (defaults to use 'dump') [optional]
-  --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL
-                        [optional]
+                        Skip updating throughput values across tables [optional]
+  --dumpPath DUMPPATH   Directory to place and search for DynamoDB table backups (defaults to use 'dump') [optional]
+  --billingMode {PROVISIONED,PAY_PER_REQUEST}
+                        Set billing mode between PROVISIONED|PAY_PER_REQUEST (defaults to use 'PROVISIONED') [optional]
+  --log LOG             Logging level - DEBUG|INFO|WARNING|ERROR|CRITICAL [optional]
+  --limit LIMIT         Limit option for backup, will stop the back up process after number of backed up items reaches the limit [optional]
   -f FILTEROPTION, --filterOption FILTEROPTION
                         Filter option for backup, JSON file of which keys are ['FilterExpression', 'ExpressionAttributeNames', 'ExpressionAttributeValues']
 ```
