@@ -103,6 +103,11 @@ public.ecr.aws/bchew/dynamodump
 ghcr.io/bchew/dynamodump
 ```
 
+Links to the registries specified:
+- [Docker Hub](https://hub.docker.com/r/bchew/dynamodump)
+- [Amazon ECR Public Gallery](https://gallery.ecr.aws/bchew/dynamodump)
+- [GitHub Packages](https://github.com/bchew/dynamodump/pkgs/container/dynamodump)
+
 ## AWS example
 
 Single table backup/restore:
