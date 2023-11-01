@@ -1,7 +1,7 @@
 {
   "additionalReviewers": ["bchew"],
   "branchPrefix": "renovate-",
-  "extends": ["config:base"],
+  "extends": ["config:recommended"],
   "labels": ["dependencies"],
   "packageRules": [
     {
@@ -17,5 +17,7 @@
   },
   "schedule": [
     "before 3am on the first day of the month"
-  ]
+  ],
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0
 }
