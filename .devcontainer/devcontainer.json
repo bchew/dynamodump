@@ -7,7 +7,7 @@
 		"context": "..",
 		"args": { 
 			// Update 'VARIANT' to pick a Python version
-			"VARIANT": "3.11",
+			"VARIANT": "3.12",
 			// Options
 			"NODE_VERSION": "none"
 		}
