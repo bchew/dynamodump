@@ -1,0 +1,43 @@
+name: Update helm-library changelog
+
+on:
+  pull_request:
+    types: [ opened ]
+    paths:
+      - 'charts/helm-library'
+
+#  # Optionally you can use `workflow_dispatch` to run Changelog CI Manually
+#  workflow_dispatch:
+#    inputs:
+#      release_version:
+#        description: 'Set Release Version'
+#        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository
+      - uses: actions/checkout@v2
+
+      - name: Run Changelog CI
+        uses: saadmk11/changelog-ci@v1.1.2
+        with:
+          # Optional, you can provide any name for your changelog file,
+          # We currently support Markdown (.md) and reStructuredText (.rst) files
+          # defaults to `CHANGELOG.md` if not provided.
+          changelog_filename: CHANGELOG-HELM_LIBRARY.md
+          # Optional, only required when you want more customization
+          # e.g: group your changelog by labels with custom titles,
+          # different version prefix, pull request title and version number regex etc.
+          # config file can be in JSON or YAML format.
+          config_file: changelog-ci-config.json
+          # Optional, only required when you want to run Changelog CI
+          # on an event other than `pull_request` event.
+          # In this example `release_version` is fetched from `workflow_dispatch` events input.
+          # You can use any other method to fetch the release version
+          # such as environment variable or from output of another action
+#          release_version: ${{ github.event.inputs.release_version }}
+          # Optional
+#          github_token: ${{ secrets.GITHUB_TOKEN }}
