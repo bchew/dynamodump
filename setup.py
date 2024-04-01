@@ -21,7 +21,7 @@ setuptools.setup(
     ],
     packages=["dynamodump"],
     python_requires=">=3.8",
-    install_requires=["boto3==1.34.74", "six==1.16.0"],
+    install_requires=["boto3==1.34.75", "six==1.16.0"],
     entry_points={
         "console_scripts": ["dynamodump=dynamodump.dynamodump:main"],
     },
