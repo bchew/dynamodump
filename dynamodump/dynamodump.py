@@ -811,19 +811,23 @@ def prepare_lsi_for_restore(lsi):
     }
 
 
-def prepare_gsi_for_restore(gsi):
+def prepare_gsi_for_restore(gsi, billing_mode):
     """
     This function makes sure that the payload returned for the boto3 API call create_table is compatible
     See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html
     """
-    return {
+    result = {
         "IndexName": gsi["IndexName"],
         "KeySchema": gsi["KeySchema"],
         "Projection": gsi["Projection"],
-        "ProvisionedThroughput": prepare_provisioned_throughput_for_restore(
-            gsi["ProvisionedThroughput"]
-        ),
     }
+
+    if billing_mode != PAY_PER_REQUEST_BILLING_MODE:
+        result["ProvisionedThroughput"] = prepare_provisioned_throughput_for_restore(
+            gsi["ProvisionedThroughput"]
+        )
+
+    return result
 
 
 def do_restore(
@@ -952,7 +956,8 @@ def do_restore(
 
         if table_global_secondary_indexes is not None:
             optional_args["GlobalSecondaryIndexes"] = [
-                prepare_gsi_for_restore(gsi) for gsi in table_global_secondary_indexes
+                prepare_gsi_for_restore(gsi, billing_mode)
+                for gsi in table_global_secondary_indexes
             ]
 
         while True:
