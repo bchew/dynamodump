@@ -5,6 +5,6 @@ repos:
       - id: black
         language_version: python3.12
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
+    rev: 7.1.2
     hooks:
       - id: flake8
