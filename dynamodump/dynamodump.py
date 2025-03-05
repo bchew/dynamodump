@@ -76,7 +76,7 @@ def process_item_types(dct):
             val = item[key]
             if "B" in val:
                 item[key]["B"] = base64.b64decode(val["B"].encode("utf-8"))
-            if "L" in val:
+            elif "L" in val:
                 process_list_type(val["L"])
 
 
