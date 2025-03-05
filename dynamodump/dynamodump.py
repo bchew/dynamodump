@@ -64,6 +64,12 @@ def encoder(self, obj):
 json.JSONEncoder.default = encoder
 
 
+def process_list_type(list):
+    for elem in list:
+        if "B" in elem:
+            elem["B"] = base64.b64decode(elem["B"].encode("utf-8"))
+
+
 def process_item_types(dct):
     for item in dct["Items"]:
         for key in item:
@@ -71,9 +77,7 @@ def process_item_types(dct):
             if "B" in val:
                 item[key]["B"] = base64.b64decode(val["B"].encode("utf-8"))
             if "L" in val:
-                for elem in val["L"]:
-                    if "B" in elem:
-                        elem["B"] = base64.b64decode(elem["B"].encode("utf-8"))
+                process_list_type(val["L"])
 
 
 def _get_aws_client(

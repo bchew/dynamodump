@@ -15,7 +15,7 @@
       "ReadCapacityUnits": 1, 
       "LastDecreaseDateTime": 0.0
     }, 
-    "TableSizeBytes": 28, 
+    "TableSizeBytes": 39, 
     "TableName": "testTable", 
     "TableStatus": "ACTIVE", 
     "KeySchema": [
