@@ -70,6 +70,10 @@ def process_item_types(dct):
             val = item[key]
             if "B" in val:
                 item[key]["B"] = base64.b64decode(val["B"].encode("utf-8"))
+            if "L" in val:
+                for elem in val["L"]:
+                    if "B" in elem:
+                        elem["B"] = base64.b64decode(elem["B"].encode("utf-8"))
 
 
 def _get_aws_client(
