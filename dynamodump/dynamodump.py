@@ -354,7 +354,7 @@ def get_restore_table_matches(table_name_wildcard, separator):
 
     matching_tables = []
     try:
-        dir_list = os.listdir("./" + args.dumpPath)
+        dir_list = os.scandir("./" + args.dumpPath)
     except OSError:
         logging.info(
             'Cannot find "./%s", Now trying user provided absolute dump path..'
@@ -377,6 +377,8 @@ def get_restore_table_matches(table_name_wildcard, separator):
                 sys.exit(1)
 
     for dir_name in dir_list:
+        if not os.DirEntry.is_dir(dir_name):
+            continue
         if table_name_wildcard == "*":
             matching_tables.append(dir_name)
         elif separator == "":
