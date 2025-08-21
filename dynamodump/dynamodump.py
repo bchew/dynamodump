@@ -822,7 +822,7 @@ def prepare_gsi_for_restore(gsi, billing_mode):
         "Projection": gsi["Projection"],
     }
 
-    if billing_mode != PAY_PER_REQUEST_BILLING_MODE:
+    if billing_mode != PAY_PER_REQUEST_BILLING_MODE and "ProvisionedThroughput" in gsi:
         result["ProvisionedThroughput"] = prepare_provisioned_throughput_for_restore(
             gsi["ProvisionedThroughput"]
         )
@@ -900,6 +900,9 @@ def do_restore(
     original_gsi_read_capacities = []
     if table_global_secondary_indexes is not None:
         for gsi in table_global_secondary_indexes:
+            if "ProvisionedThroughput" not in gsi:
+                continue
+
             # keeps track of original gsi write capacity units. If provisioned capacity is 0, set to
             # RESTORE_WRITE_CAPACITY as fallback given that 0 is not allowed for write capacities
             original_gsi_write_capacity = gsi["ProvisionedThroughput"][
@@ -1065,6 +1068,9 @@ def do_restore(
             if table_global_secondary_indexes is not None:
                 gsi_data = []
                 for gsi in table_global_secondary_indexes:
+                    if "ProvisionedThroughput" not in gsi:
+                        continue
+
                     wcu = gsi["ProvisionedThroughput"]["WriteCapacityUnits"]
                     rcu = gsi["ProvisionedThroughput"]["ReadCapacityUnits"]
                     original_gsi_write_capacity = original_gsi_write_capacities.pop(0)
