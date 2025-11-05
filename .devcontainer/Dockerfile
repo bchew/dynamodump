@@ -1,7 +1,7 @@
 # See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.191.1/containers/python-3/.devcontainer/base.Dockerfile
 
 # [Choice] Python version
-ARG VARIANT="3.13"
+ARG VARIANT="3.14"
 FROM mcr.microsoft.com/vscode/devcontainers/python:${VARIANT}
 
 # [Choice] Node.js version: none, lts/*, 16, 14, 12, 10
