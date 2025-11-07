@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="dynamodump",
-    version="1.11.0",
+    version="1.11.1",
     author="Benny Chew",
     author_email="noreply@bennychew.com",
     description="Simple backup and restore for Amazon DynamoDB using AWS SDK for Python (boto3)",
@@ -20,7 +20,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
     ],
     packages=["dynamodump"],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=["boto3==1.40.43", "six==1.17.0"],
     entry_points={
         "console_scripts": ["dynamodump=dynamodump.dynamodump:main"],
