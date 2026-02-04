@@ -29,7 +29,6 @@ from six.moves import input
 from urllib.error import URLError, HTTPError
 from urllib.request import urlopen
 
-
 AWS_SLEEP_INTERVAL = 10  # seconds
 BATCH_WRITE_SLEEP_INTERVAL = 0.15  # seconds
 DATA_DIR = "data"
