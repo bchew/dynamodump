@@ -20,7 +20,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
     ],
     packages=["dynamodump"],
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     install_requires=["boto3==1.43.107", "six==1.17.0"],
     entry_points={
         "console_scripts": ["dynamodump=dynamodump.dynamodump:main"],
