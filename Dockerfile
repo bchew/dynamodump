@@ -1,4 +1,4 @@
-FROM python:3.14.7-alpine
+FROM python:3.15.2-alpine
 
 COPY ./requirements.txt /mnt/dynamodump/requirements.txt
 COPY ./dynamodump/dynamodump.py /usr/local/bin/dynamodump
