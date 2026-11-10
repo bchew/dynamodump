@@ -348,44 +348,42 @@ def get_table_name_matches(conn, table_name_wildcard):
 
 def get_restore_table_matches(table_name_wildcard, separator):
     """
-    Find tables to restore
+    Find tables to restore.
+
+    Only directories in the dump path are considered tables, and names are
+    matched with fnmatch, the same way get_table_name_matches does for backup.
     """
 
     matching_tables = []
+    dump_root = "./" + args.dumpPath
     try:
-        dir_list = os.listdir("./" + args.dumpPath)
+        dir_list = os.listdir(dump_root)
     except OSError:
         logging.info(
             'Cannot find "./%s", Now trying user provided absolute dump path..'
             % args.dumpPath
         )
+        dump_root = args.dumpPath
         try:
-            dir_list = os.listdir(args.dumpPath)
+            dir_list = os.listdir(dump_root)
         except OSError:
             logging.info(
                 'Cannot find "%s", Now trying current working directory..'
                 % args.dumpPath
             )
-            dump_data_path = CURRENT_WORKING_DIR
+            dump_root = CURRENT_WORKING_DIR
             try:
-                dir_list = os.listdir(dump_data_path)
+                dir_list = os.listdir(dump_root)
             except OSError:
                 logging.info(
-                    'Cannot find "%s" directory containing dump files!' % dump_data_path
+                    'Cannot find "%s" directory containing dump files!' % dump_root
                 )
                 sys.exit(1)
 
     for dir_name in dir_list:
-        if table_name_wildcard == "*":
-            matching_tables.append(dir_name)
-        elif separator == "":
-            if dir_name.startswith(
-                re.sub(
-                    r"([A-Z])", r" \1", table_name_wildcard.split("*", 1)[0]
-                ).split()[0]
-            ):
-                matching_tables.append(dir_name)
-        elif dir_name.split(separator, 1)[0] == table_name_wildcard.split("*", 1)[0]:
+        if not os.path.isdir(os.path.join(dump_root, dir_name)):
+            continue
+        if fnmatch.fnmatch(dir_name, table_name_wildcard):
             matching_tables.append(dir_name)
 
     return matching_tables
