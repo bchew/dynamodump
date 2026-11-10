@@ -63,12 +63,29 @@ def encoder(self, obj):
 json.JSONEncoder.default = encoder
 
 
+def _decode_attribute_value(val):
+    """
+    Decode, in place, the base64 strings that backup wrote for binary values.
+
+    Handles B, BS and recurses through M and L. Other types are left untouched.
+    """
+
+    if "B" in val:
+        val["B"] = base64.b64decode(val["B"].encode("utf-8"))
+    elif "BS" in val:
+        val["BS"] = [base64.b64decode(b.encode("utf-8")) for b in val["BS"]]
+    elif "M" in val:
+        for nested in val["M"].values():
+            _decode_attribute_value(nested)
+    elif "L" in val:
+        for nested in val["L"]:
+            _decode_attribute_value(nested)
+
+
 def process_item_types(dct):
     for item in dct["Items"]:
         for key in item:
-            val = item[key]
-            if "B" in val:
-                item[key]["B"] = base64.b64decode(val["B"].encode("utf-8"))
+            _decode_attribute_value(item[key])
 
 
 def _get_aws_client(
